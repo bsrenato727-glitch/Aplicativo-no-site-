@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>PORTARIA REMBRANDT - V3</title>
+    <title>PORTARIA REMBRANDT - V4.3</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
@@ -15,21 +15,16 @@
         input, select, button { width: 100%; padding: 12px; margin-top: 5px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
         .btn-success { background: var(--accent); color: white; border: none; font-weight: bold; }
         .btn-outline { background: white; color: var(--primary); border: 1px solid var(--primary); margin-top: 10px; }
-        
+        .item-temp { background: #ffffff; padding: 10px; margin-top: 8px; border-radius: 6px; font-size: 0.95rem; border: 1px solid #dae1e9; border-left: 5px solid var(--blue); }
+        .hidden { display: none !important; }
+        #reader { width: 100%; border-radius: 8px; margin-top: 10px; display: none; background: #000; overflow: hidden; }
         .galeria-fotos { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
         .foto-container { position: relative; width: 80px; height: 80px; }
         .foto-mini { width: 100%; height: 100%; object-fit: cover; border-radius: 8px; border: 1px solid #ccc; }
         .btn-del { position: absolute; top: -5px; right: -5px; background: var(--red); color: white; border: none; border-radius: 50%; width: 22px; height: 22px; font-weight: bold; display: flex; align-items: center; justify-content: center; }
-        
         #signature-pad { border: 2px solid #333; background: #fff; width: 100%; height: 200px; border-radius: 8px; touch-action: none; margin-top: 10px; }
-        
-        /* Estilo para lista de itens em colunas/linhas */
-        .item-temp { background: #ffffff; padding: 10px; margin-top: 8px; border-radius: 6px; font-size: 0.95rem; border: 1px solid #dae1e9; border-left: 5px solid var(--blue); box-shadow: 2px 2px 5px rgba(0,0,0,0.05); }
-        .encomenda-info-list { margin: 10px 0; padding: 0; list-style: none; }
-        .encomenda-info-list li { padding: 5px 0; border-bottom: 1px dashed #ccc; }
-        
-        .hidden { display: none !important; }
-        #reader { width: 100%; border-radius: 8px; margin-top: 10px; display: none; background: #000; overflow: hidden; }
+        .lista-moradores-scroll { max-height: 250px; overflow-y: auto; margin-top: 15px; border: 1px solid #ddd; padding: 5px; border-radius: 8px; background: #fafafa; }
+        .morador-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #eee; }
     </style>
 </head>
 <body>
@@ -43,32 +38,44 @@
         
         <div style="background: #f9f9f9; padding: 10px; border-radius: 8px; margin-top: 10px; border: 1px solid #eee;">
             <input type="text" id="protocolo-input" placeholder="Protocolo/Código">
-            <button class="btn-outline" onclick="window.abrirScanner()">📷 LER CÓDIGO (SCANNER)</button>
+            <button class="btn-outline" onclick="window.abrirScanner()">📷 SCANNER</button>
             <div id="reader"></div>
-            <input type="text" id="desc-input" placeholder="Descrição do Item">
-            <button class="btn-outline" style="background:var(--blue); color:white; border:none;" onclick="window.incluirNaLista()">➕ ADICIONAR NA LISTA</button>
+            <input type="text" id="desc-input" placeholder="O que chegou?">
+            <button class="btn-outline" style="background:var(--blue); color:white; border:none;" onclick="window.incluirNaLista()">➕ ADICIONAR ITEM</button>
         </div>
-
         <div id="lista-temp"></div>
 
-        <label style="display:block; margin-top:20px; font-weight:bold;">📸 Fotos (Apenas p/ o Comprovante):</label>
+        <label style="display:block; margin-top:20px; font-weight:bold;">📸 Fotos (P/ o PDF):</label>
         <input type="file" id="foto-input" accept="image/*" capture="camera" onchange="window.processarFoto(this)">
         <div id="galeria" class="galeria-fotos"></div>
 
-        <button class="btn-success" id="btn-salvar-geral" onclick="window.registrarEntrada()" style="margin-top:25px; display:none;">SALVAR E AVISAR NO WHATSAPP</button>
+        <button class="btn-success" id="btn-salvar-geral" onclick="window.registrarEntrada()" style="margin-top:25px; display:none;">SALVAR E AVISAR WHATSAPP</button>
+        <button class="btn-outline" onclick="window.abrirGestao()" style="margin-top:40px; border-style: dashed; color: #555;">⚙️ GESTÃO DE MORADORES</button>
+    </div>
+
+    <div id="tela-cadastro" class="card hidden">
+        <h3>👥 Gerenciar Moradores</h3>
+        <div style="background: #eef1f5; padding: 12px; border-radius: 8px;">
+            <label><b>Cadastrar Novo:</b></label>
+            <input type="number" id="cad-apto" placeholder="Apto">
+            <input type="text" id="cad-nome" placeholder="Nome">
+            <input type="text" id="cad-whats" placeholder="WhatsApp (Ex: 85988887777)">
+            <button class="btn-success" id="btn-salvar-morador" onclick="window.salvarMorador()">CADASTRAR</button>
+        </div>
+
+        <h4 style="margin-top:20px;">🗑️ Lista para Exclusão:</h4>
+        <div id="lista-contatos-excluir" class="lista-moradores-scroll"></div>
+        
+        <button class="btn-outline" onclick="window.fecharGestao()" style="margin-top:20px;">VOLTAR À PORTARIA</button>
     </div>
 
     <div id="tela-entrega" class="card hidden">
-        <h3>📤 Retirada de Encomenda</h3>
-        <div id="detalhes-entrega-texto" style="margin-bottom: 15px; font-size: 0.9rem; color: #555;"></div>
-        
-        <input type="text" id="nome-receptor" placeholder="Nome de quem está recebendo">
-        
-        <label style="display:block; margin-top:15px;">Assine com o dedo no quadro abaixo:</label>
+        <h3>📤 Retirada</h3>
+        <div id="detalhes-entrega-texto" style="margin-bottom: 15px;"></div>
+        <input type="text" id="nome-receptor" placeholder="Nome de quem recebe">
         <canvas id="signature-pad"></canvas>
-        
-        <button class="btn-success" onclick="window.finalizarEntrega()" style="margin-top:20px;">CONCLUIR E GERAR PDF</button>
-        <button class="btn-outline" onclick="location.reload()">VOLTAR</button>
+        <button class="btn-success" onclick="window.finalizarEntrega()" style="margin-top:20px;">GERAR PDF E CONCLUIR</button>
+        <button class="btn-outline" onclick="location.reload()">CANCELAR</button>
     </div>
 
     <div id="lista-aguardando">
@@ -92,29 +99,50 @@
         sel.innerHTML = '<option value="">Selecione o Apto...</option>';
         if(moras) moras.forEach(m => sel.innerHTML += `<option value="${m.Apartamento}">Apto ${m.Apartamento} - ${m.Morador}</option>`);
 
+        const listaExcluir = document.getElementById('lista-contatos-excluir');
+        listaExcluir.innerHTML = moras ? moras.map(m => `
+            <div class="morador-item">
+                <span><b>${m.Apartamento}</b> - ${m.Morador}</span>
+                <button onclick="window.excluirMorador(${m.id})" style="width:auto; padding:5px 12px; background:red; color:white; border:none; border-radius:5px;">🗑️</button>
+            </div>
+        `).join("") : "Nenhum cadastrado.";
+
         const { data: encs } = await supabase.from('Encomendas').select('*').eq('Status', 'pendente').order('created_at', {ascending: false});
-        const lista = document.getElementById('itens-lista');
-        lista.innerHTML = "";
+        const listaEnc = document.getElementById('itens-lista');
+        listaEnc.innerHTML = "";
         if(encs) encs.forEach(i => {
-            // Transforma a descrição salvada em linhas para visualização na portaria
             const itensFormatados = i.Descrição.split(' | ').map(line => `• ${line}`).join('<br>');
-            lista.innerHTML += `<div class="card" style="display:flex; justify-content:space-between; align-items:center; padding:12px; border-left:6px solid var(--primary); margin-bottom:8px;">
+            listaEnc.innerHTML += `<div class="card" style="display:flex; justify-content:space-between; align-items:center; padding:12px; border-left:6px solid var(--primary); margin-bottom:8px;">
                 <span><b>Apto ${i.Apartamento}</b><br><small>${itensFormatados}</small></span>
-                <button onclick='window.abrirEntrega(${JSON.stringify(i)})' style="width:auto; padding:8px 15px; background:var(--primary); color:white; border:none; border-radius:5px; font-weight:bold;">ENTREGAR</button>
+                <button onclick='window.abrirEntrega(${JSON.stringify(i)})' style="width:auto; padding:8px 15px; background:var(--primary); color:white; border:none; border-radius:5px;">ENTREGAR</button>
             </div>`;
         });
     }
+
+    window.salvarMorador = async () => {
+        const a = document.getElementById('cad-apto').value;
+        const n = document.getElementById('cad-nome').value;
+        const w = document.getElementById('cad-whats').value;
+        if(!a || !n || !w) return alert("Preencha todos os campos!");
+        const { error } = await supabase.from('Moradores').insert([{ 
+            Apartamento: a, Morador: n, Status: w, created_at: new Date().toISOString() 
+        }]);
+        if(!error) location.reload(); else alert("Erro: " + error.message);
+    };
+
+    window.excluirMorador = async (id) => {
+        if(confirm("Deseja realmente apagar este contato?")) {
+            const { error } = await supabase.from('Moradores').delete().eq('id', id);
+            if(!error) carregarTudo();
+        }
+    };
 
     window.abrirScanner = () => {
         const readerDiv = document.getElementById('reader');
         readerDiv.style.display = 'block';
         const html5QrCode = new Html5Qrcode("reader");
         html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 150 } },
-            (decodedText) => {
-                document.getElementById('protocolo-input').value = decodedText;
-                html5QrCode.stop();
-                readerDiv.style.display = 'none';
-            }
+            (txt) => { document.getElementById('protocolo-input').value = txt; html5QrCode.stop(); readerDiv.style.display = 'none'; }
         );
     };
 
@@ -130,21 +158,14 @@
                     if (width > height) { if (width > max_size) { height *= max_size / width; width = max_size; } }
                     else { if (height > max_size) { width *= max_size / height; height = max_size; } }
                     canvasComp.width = width; canvasComp.height = height;
-                    const ctxComp = canvasComp.getContext('2d');
-                    ctxComp.drawImage(img, 0, 0, width, height);
+                    const ctxComp = canvasComp.getContext('2d'); ctxComp.drawImage(img, 0, 0, width, height);
                     listaFotos.push(canvasComp.toDataURL('image/jpeg', 0.7));
-                    renderGaleria();
-                    input.value = ""; 
+                    renderGaleria(); input.value = ""; 
                 };
                 img.src = e.target.result;
             };
             reader.readAsDataURL(input.files[0]);
         }
-    };
-
-    window.removerFoto = (idx) => {
-        listaFotos.splice(idx, 1);
-        renderGaleria();
     };
 
     function renderGaleria() {
@@ -156,132 +177,109 @@
             </div>
         `).join("");
     }
+    window.removerFoto = (idx) => { listaFotos.splice(idx, 1); renderGaleria(); };
 
     window.incluirNaLista = () => {
         const prot = document.getElementById('protocolo-input').value;
         const desc = document.getElementById('desc-input').value;
         if(!desc) return alert("Descreva o item!");
-        
-        // Formatação em linha com negrito para o protocolo se houver
-        const itemTexto = prot ? `[Cód: ${prot}] ${desc}` : `${desc}`;
-        listaRascunho.push(itemTexto);
-        
+        listaRascunho.push(prot ? `[Cód: ${prot}] ${desc}` : desc);
         document.getElementById('lista-temp').innerHTML = listaRascunho.map(i => `<div class="item-temp">📦 ${i}</div>`).join("");
-        document.getElementById('protocolo-input').value = "";
-        document.getElementById('desc-input').value = "";
+        document.getElementById('protocolo-input').value = ""; document.getElementById('desc-input').value = "";
         document.getElementById('btn-salvar-geral').style.display = 'block';
     };
 
     window.registrarEntrada = async () => {
         const apto = document.getElementById('apt-select').value;
         if(!apto) return alert("Selecione o Apto!");
-
         const { error } = await supabase.from('Encomendas').insert([{
-            Apartamento: apto, 
-            Morador: moradorAtual?.Morador, 
-            Descrição: listaRascunho.join(' | '), // Salva com separador para quebrar depois
-            Status: 'pendente'
+            Apartamento: apto, Morador: moradorAtual?.Morador, 
+            Descrição: listaRascunho.join(' | '), Status: 'pendente'
         }]);
-
         if(!error) {
             localStorage.setItem('fotos_' + apto, JSON.stringify(listaFotos));
             if(moradorAtual?.Status) {
                 const tel = moradorAtual.Status.replace(/\D/g, '');
-                // Quebra a mensagem do WhatsApp em LINHAS
                 const itensMsg = listaRascunho.map(it => `📦 *${it}*`).join("%0A");
-                const msg = `🏢 *PORTARIA REMBRANDT*%0A%0AOlá! Novas encomendas para o Apto *${apto}*:%0A${itensMsg}%0A%0A_Favor retirar na portaria._`;
+                const msg = `🏢 *PORTARIA REMBRANDT*%0A%0AOlá! Encomendas para o Apto *${apto}*:%0A${itensMsg}%0A%0A_Favor retirar na portaria._`;
                 window.open(`https://api.whatsapp.com/send?phone=55${tel}&text=${msg}`, '_blank');
             }
-            alert("Registrado com sucesso!"); location.reload();
+            location.reload();
         }
     };
 
-    window.abrirEntrega = (item) => {
+    window.abrirEntrega = async (item) => {
         entregaAtual = item;
+        // Busca o morador para ter o WhatsApp na hora da entrega
+        const { data } = await supabase.from('Moradores').select('*').eq('Apartamento', item.Apartamento).maybeSingle();
+        moradorAtual = data;
+        
         document.getElementById('tela-registro').classList.add('hidden');
         document.getElementById('lista-aguardando').classList.add('hidden');
         document.getElementById('tela-entrega').classList.remove('hidden');
-        
-        // Mostra o que está sendo entregue em linhas
-        const linhasDetalhadas = item.Descrição.split(' | ').map(l => `• ${l}`).join('<br>');
-        document.getElementById('detalhes-entrega-texto').innerHTML = `<b>Entregando para Apto ${item.Apartamento}:</b><br>${linhasDetalhadas}`;
-        
+        const linhas = item.Descrição.split(' | ').map(l => `• ${l}`).join('<br>');
+        document.getElementById('detalhes-entrega-texto').innerHTML = `<b>Apto ${item.Apartamento}:</b><br>${linhas}`;
         setTimeout(iniciarAssinatura, 300);
     };
 
     window.finalizarEntrega = async () => {
         const receptor = document.getElementById('nome-receptor').value;
-        if(!receptor) return alert("Digite o nome de quem está recebendo.");
-
+        if(!receptor) return alert("Quem está recebendo?");
+        
         try {
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF();
-            doc.setFont("helvetica", "bold");
-            doc.text("RECIBO DE ENTREGA - PORTARIA REMBRANDT", 20, 20);
-            
+            const { jsPDF } = window.jspdf; const doc = new jsPDF();
+            doc.text("RECIBO DE ENTREGA - REMBRANDT", 20, 20);
             doc.setFontSize(10);
-            doc.setFont("helvetica", "normal");
-            doc.text(`Apartamento: ${entregaAtual.Apartamento}`, 20, 35);
-            doc.text(`Recebido por: ${receptor}`, 20, 42);
-            doc.text(`Data/Hora: ${new Date().toLocaleString()}`, 20, 49);
-            
-            doc.text("Itens Entregues:", 20, 60);
-            const itensArray = entregaAtual.Descrição.split(' | ');
-            let yPos = 65;
-            itensArray.forEach(item => {
-                doc.text(`- ${item}`, 25, yPos);
-                yPos += 7;
-            });
-
-            // FOTOS (Só aparecem aqui no PDF)
+            const dataHora = new Date().toLocaleString();
+            doc.text(`Apto: ${entregaAtual.Apartamento} | Recebido: ${receptor}`, 20, 35);
+            doc.text(`Data: ${dataHora}`, 20, 42);
+            let y = 55; doc.text("Itens:", 20, y);
+            entregaAtual.Descrição.split(' | ').forEach(it => { y += 7; doc.text(`- ${it}`, 25, y); });
             const fotosRec = JSON.parse(localStorage.getItem('fotos_' + entregaAtual.Apartamento) || "[]");
             if(fotosRec.length > 0) {
-                yPos += 5;
-                doc.text("Anexos fotográficos:", 20, yPos);
-                yPos += 5;
-                let x = 20;
-                fotosRec.slice(0, 4).forEach((foto) => {
-                    doc.addImage(foto, 'JPEG', x, yPos, 40, 40);
-                    x += 45;
-                });
-                yPos += 45;
+                y += 10; doc.text("Fotos anexas:", 20, y); y += 5; let x = 20;
+                fotosRec.slice(0, 4).forEach(f => { doc.addImage(f, 'JPEG', x, y, 40, 40); x += 45; }); y += 45;
             }
-
-            doc.text("Assinatura do Recebedor:", 20, yPos + 10);
-            doc.addImage(canvas.toDataURL(), 'PNG', 20, yPos + 15, 80, 30);
-            
+            doc.text("Assinatura:", 20, y + 10);
+            doc.addImage(canvas.toDataURL(), 'PNG', 20, y + 15, 80, 30);
             doc.save(`Recibo_Apto_${entregaAtual.Apartamento}.pdf`);
             localStorage.removeItem('fotos_' + entregaAtual.Apartamento);
+
+            // NOVO: AVISO DE RETIRADA NO WHATSAPP
+            if(moradorAtual?.Status) {
+                const tel = moradorAtual.Status.replace(/\D/g, '');
+                const msgRetirada = `🏢 *PORTARIA REMBRANDT*%0A%0A✅ Encomenda entregue!%0A*Apto:* ${entregaAtual.Apartamento}%0A*Recebido por:* ${receptor}%0A*Data:* ${dataHora}%0A%0A_O recibo em PDF foi gerado na portaria._`;
+                window.open(`https://api.whatsapp.com/send?phone=55${tel}&text=${msgRetirada}`, '_blank');
+            }
+
         } catch(e) { console.error(e); }
-
-        // MENSAGEM FINAL DE RETIRADA NO WHATSAPP
-        const { data: m } = await supabase.from('Moradores').select('Status').eq('Apartamento', entregaAtual.Apartamento).maybeSingle();
-        if(m?.Status) {
-            const tel = m.Status.replace(/\D/g, '');
-            const msgFinal = `🏢 *PORTARIA REMBRANDT*%0A%0A✅ *ENCOMENDA ENTREGUE*%0A📍 Apto: ${entregaAtual.Apartamento}%0A👤 Recebido por: ${receptor}%0A📅 Data: ${new Date().toLocaleString()}`;
-            window.open(`https://api.whatsapp.com/send?phone=55${tel}&text=${msgFinal}`, '_blank');
-        }
-
+        
         await supabase.from('Encomendas').update({ Status: 'entregue' }).eq('id', entregaAtual.id);
-        alert("Entrega finalizada!"); location.reload();
+        alert("Retirada concluída!");
+        location.reload();
+    };
+
+    window.abrirGestao = () => { 
+        document.getElementById('tela-registro').classList.add('hidden'); 
+        document.getElementById('lista-aguardando').classList.add('hidden');
+        document.getElementById('tela-cadastro').classList.remove('hidden'); 
+    };
+    window.fecharGestao = () => { 
+        document.getElementById('tela-cadastro').classList.add('hidden'); 
+        document.getElementById('tela-registro').classList.remove('hidden'); 
+        document.getElementById('lista-aguardando').classList.remove('hidden');
     };
 
     function iniciarAssinatura() {
-        canvas = document.getElementById('signature-pad');
-        ctx = canvas.getContext('2d');
-        canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight;
-        ctx.lineWidth = 3; ctx.strokeStyle = "#000";
+        canvas = document.getElementById('signature-pad'); ctx = canvas.getContext('2d');
+        canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight; ctx.lineWidth = 3;
         const getPos = (e) => {
-            const r = canvas.getBoundingClientRect();
-            const t = e.touches ? e.touches[0] : e;
+            const r = canvas.getBoundingClientRect(); const t = e.touches ? e.touches[0] : e;
             return { x: t.clientX - r.left, y: t.clientY - r.top };
         };
-        const start = (e) => { desenhando = true; ctx.beginPath(); const p = getPos(e); ctx.moveTo(p.x, p.y); e.preventDefault(); };
-        const move = (e) => { if(!desenhando) return; const p = getPos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); e.preventDefault(); };
-        const end = () => desenhando = false;
-        canvas.addEventListener('touchstart', start, {passive: false});
-        canvas.addEventListener('touchmove', move, {passive: false});
-        canvas.addEventListener('touchend', end);
+        canvas.addEventListener('touchstart', (e) => { ctx.beginPath(); const p = getPos(e); ctx.moveTo(p.x, p.y); desenhando = true; e.preventDefault(); }, {passive: false});
+        canvas.addEventListener('touchmove', (e) => { if(desenhando) { const p = getPos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); } e.preventDefault(); }, {passive: false});
+        canvas.addEventListener('touchend', () => desenhando = false);
     }
 
     window.verificarMorador = async () => {
