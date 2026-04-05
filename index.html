@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>PORTARIA REMBRANDT - V4.6</title>
+    <title>PORTARIA REMBRANDT - V4.9</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
@@ -15,6 +15,7 @@
         input, select, button { width: 100%; padding: 12px; margin-top: 5px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
         .btn-success { background: var(--accent); color: white; border: none; font-weight: bold; }
         .btn-outline { background: white; color: var(--primary); border: 1px solid var(--primary); margin-top: 10px; }
+        .btn-danger { background: var(--red); color: white; border: none; margin-top: 5px; font-size: 14px; padding: 8px; }
         .item-temp { background: #ffffff; padding: 10px; margin-top: 8px; border-radius: 6px; font-size: 0.95rem; border: 1px solid #dae1e9; border-left: 5px solid var(--blue); }
         .hidden { display: none !important; }
         #reader { width: 100%; border-radius: 8px; margin-top: 10px; display: none; background: #000; overflow: hidden; }
@@ -45,7 +46,7 @@
         </div>
         <div id="lista-temp"></div>
 
-        <label style="display:block; margin-top:20px; font-weight:bold;">📸 Fotos (P/ o PDF):</label>
+        <label style="display:block; margin-top:20px; font-weight:bold;">📸 Fotos das Encomendas:</label>
         <input type="file" id="foto-input" accept="image/*" capture="camera" onchange="window.processarFoto(this)">
         <div id="galeria" class="galeria-fotos"></div>
 
@@ -62,15 +63,18 @@
             <button class="btn-success" onclick="window.salvarMorador()">CADASTRAR</button>
         </div>
         <div id="lista-contatos-excluir" class="lista-moradores-scroll"></div>
-        <button class="btn-outline" onclick="window.fecharGestao()" style="margin-top:20px;">VOLTAR</button>
+        <button class="btn-outline" onclick="window.fecharGestao()">VOLTAR</button>
     </div>
 
     <div id="tela-entrega" class="card hidden">
-        <h3>📤 Retirada</h3>
-        <div id="detalhes-entrega-texto" style="margin-bottom: 15px;"></div>
-        <input type="text" id="nome-receptor" placeholder="Nome de quem recebe">
+        <h3>📤 Retirada de Encomenda</h3>
+        <div id="detalhes-entrega-texto" style="margin-bottom: 15px; font-size: 0.9rem;"></div>
+        <input type="text" id="nome-receptor" placeholder="Quem está retirando?">
+        <label style="display:block; margin-top:10px;">Assinatura:</label>
         <canvas id="signature-pad"></canvas>
-        <button class="btn-success" onclick="window.finalizarEntrega()" style="margin-top:20px;">CONCLUIR E AVISAR</button>
+        <button class="btn-danger" onclick="window.limparAssinatura()">🧹 LIMPAR ASSINATURA</button>
+        
+        <button class="btn-success" onclick="window.finalizarEntrega()" style="margin-top:25px;">CONCLUIR E GERAR RECIBO</button>
         <button class="btn-outline" onclick="location.reload()">CANCELAR</button>
     </div>
 
@@ -87,21 +91,17 @@
     let moradorAtual = null, entregaAtual = null, listaRascunho = [], listaFotos = [];
     let canvas, ctx, desenhando = false;
 
-    // --- FUNÇÃO DO BIP DE MERCANTIL (ELETRÔNICO) ---
-    function tocarBipMercantil() {
+    function tocarBipSupermercado() {
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         const oscillator = audioCtx.createOscillator();
         const gainNode = audioCtx.createGain();
-
         oscillator.type = 'sine';
-        oscillator.frequency.setValueAtTime(660, audioCtx.currentTime); // Frequência do bip de caixa
-        gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
-
+        oscillator.frequency.setValueAtTime(750, audioCtx.currentTime);
+        gainNode.gain.setValueAtTime(0.5, audioCtx.currentTime);
         oscillator.connect(gainNode);
         gainNode.connect(audioCtx.destination);
-
         oscillator.start();
-        setTimeout(() => oscillator.stop(), 100); // Duração curta de 0.1s
+        setTimeout(() => oscillator.stop(), 120);
     }
 
     window.onload = carregarTudo;
@@ -137,26 +137,97 @@
         const html5QrCode = new Html5Qrcode("reader");
         html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 150 } },
             (txt) => { 
-                tocarBipMercantil(); // BIP DE MERCANTIL AQUI
+                tocarBipSupermercado();
                 document.getElementById('protocolo-input').value = txt; 
                 html5QrCode.stop(); 
                 readerDiv.style.display = 'none'; 
             }
-        ).catch(() => alert("Erro ao abrir câmera. Verifique as permissões."));
+        ).catch(() => alert("Permita a câmera."));
     };
 
-    window.salvarMorador = async () => {
-        const a = document.getElementById('cad-apto').value;
-        const n = document.getElementById('cad-nome').value;
-        const w = document.getElementById('cad-whats').value;
-        const { error } = await supabase.from('Moradores').insert([{ Apartamento: a, Morador: n, Status: w, created_at: new Date().toISOString() }]);
-        if(!error) location.reload();
+    window.incluirNaLista = () => {
+        const desc = document.getElementById('desc-input').value;
+        if(!desc) return;
+        const prot = document.getElementById('protocolo-input').value;
+        listaRascunho.push({ desc: desc, prot: prot || "S/ Protocolo" });
+        document.getElementById('lista-temp').innerHTML = listaRascunho.map(i => `<div class="item-temp">📦 ${i.desc} <br><small>Prot: ${i.prot}</small></div>`).join("");
+        document.getElementById('protocolo-input').value = ""; document.getElementById('desc-input').value = "";
+        document.getElementById('btn-salvar-geral').style.display = 'block';
     };
 
-    window.excluirMorador = async (id) => {
-        if(confirm("Apagar contato?")) { await supabase.from('Moradores').delete().eq('id', id); carregarTudo(); }
+    window.registrarEntrada = async () => {
+        const apto = document.getElementById('apt-select').value;
+        const descricaoFinal = listaRascunho.map(i => `${i.desc} (Prot: ${i.prot})`).join(' | ');
+        const { error } = await supabase.from('Encomendas').insert([{ Apartamento: apto, Morador: moradorAtual?.Morador, Descrição: descricaoFinal, Status: 'pendente' }]);
+        
+        if(!error) {
+            localStorage.setItem('fotos_' + apto, JSON.stringify(listaFotos));
+            if(moradorAtual?.Status) {
+                const tel = moradorAtual.Status.replace(/\D/g, '');
+                let volumesMsg = "";
+                listaRascunho.forEach((item, index) => {
+                    volumesMsg += `*Volume ${index + 1}:*%0A${item.desc}%0AProtocolo: ${item.prot}%0A%0A`;
+                });
+                const msg = `🏢 *PORTARIA REMBRANDT*%0A%0A📍 *Encomenda Chegou!*%0AApartamento: *${apto}*%0A%0A${volumesMsg}_Disponível na portaria._`;
+                window.open(`https://api.whatsapp.com/send?phone=55${tel}&text=${msg}`, '_blank');
+            }
+            location.reload();
+        }
     };
 
+    window.abrirEntrega = async (item) => {
+        entregaAtual = item;
+        const { data } = await supabase.from('Moradores').select('*').eq('Apartamento', item.Apartamento).maybeSingle();
+        moradorAtual = data;
+        document.getElementById('tela-registro').classList.add('hidden');
+        document.getElementById('lista-aguardando').classList.add('hidden');
+        document.getElementById('tela-entrega').classList.remove('hidden');
+        document.getElementById('detalhes-entrega-texto').innerHTML = `<b>Apto ${item.Apartamento}</b><br>${item.Descrição.split(' | ').join('<br>')}`;
+        setTimeout(iniciarAssinatura, 300);
+    };
+
+    window.limparAssinatura = () => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+    };
+
+    window.finalizarEntrega = async () => {
+        const receptor = document.getElementById('nome-receptor').value;
+        if(!receptor) return alert("Quem está retirando?");
+        
+        const dataHora = new Date().toLocaleString('pt-BR');
+        const fotosSalvas = JSON.parse(localStorage.getItem('fotos_' + entregaAtual.Apartamento) || "[]");
+
+        const { jsPDF } = window.jspdf; 
+        const doc = new jsPDF();
+        doc.setFontSize(16); doc.text("RECIBO - PORTARIA REMBRANDT", 20, 20);
+        doc.setFontSize(11);
+        doc.text(`Apartamento: ${entregaAtual.Apartamento}`, 20, 35);
+        doc.text(`Retirado por: ${receptor}`, 20, 42);
+        doc.text(`Data/Hora: ${dataHora}`, 20, 49);
+        let y = 60; doc.text("Volumes:", 20, y);
+        entregaAtual.Descrição.split(' | ').forEach(linha => { y += 7; doc.text(`- ${linha}`, 25, y); });
+        if(fotosSalvas.length > 0) {
+            y += 10; let x = 20;
+            fotosSalvas.slice(0, 4).forEach(img => { doc.addImage(img, 'JPEG', x, y, 40, 40); x += 45; });
+            y += 45;
+        }
+        doc.addImage(canvas.toDataURL(), 'PNG', 20, y + 10, 70, 25);
+        doc.save(`Recibo_Apto_${entregaAtual.Apartamento}.pdf`);
+        localStorage.removeItem('fotos_' + entregaAtual.Apartamento);
+
+        if(moradorAtual?.Status) {
+            const tel = moradorAtual.Status.replace(/\D/g, '');
+            let itensRetirados = "";
+            entregaAtual.Descrição.split(' | ').forEach(i => itensRetirados += `• ${i}%0A`);
+            const msgR = `🏢 *PORTARIA REMBRANDT*%0A%0A✅ *Retirada Confirmada!*%0AApartamento: *${entregaAtual.Apartamento}*%0AQuem retirou: *${receptor}*%0AData: ${dataHora.split(' ')[0]}%0AHorário: ${dataHora.split(' ')[1]}%0A%0A*Encomendas retiradas:*%0A${itensRetirados}`;
+            window.open(`https://api.whatsapp.com/send?phone=55${tel}&text=${msgR}`, '_blank');
+        }
+
+        await supabase.from('Encomendas').update({ Status: 'entregue' }).eq('id', entregaAtual.id);
+        location.reload();
+    };
+
+    // --- AUXILIARES ---
     window.processarFoto = (input) => {
         if (input.files && input.files[0]) {
             const reader = new FileReader();
@@ -178,67 +249,20 @@
             reader.readAsDataURL(input.files[0]);
         }
     };
-
     function renderGaleria() {
         document.getElementById('galeria').innerHTML = listaFotos.map((f, i) => `
             <div class="foto-container"><img src="${f}" class="foto-mini"><button class="btn-del" onclick="window.removerFoto(${i})">X</button></div>
         `).join("");
     }
     window.removerFoto = (idx) => { listaFotos.splice(idx, 1); renderGaleria(); };
-
-    window.incluirNaLista = () => {
-        const desc = document.getElementById('desc-input').value;
-        if(!desc) return;
-        const prot = document.getElementById('protocolo-input').value;
-        listaRascunho.push(prot ? `[Cód: ${prot}] ${desc}` : desc);
-        document.getElementById('lista-temp').innerHTML = listaRascunho.map(i => `<div class="item-temp">📦 ${i}</div>`).join("");
-        document.getElementById('protocolo-input').value = ""; document.getElementById('desc-input').value = "";
-        document.getElementById('btn-salvar-geral').style.display = 'block';
-    };
-
-    window.registrarEntrada = async () => {
-        const apto = document.getElementById('apt-select').value;
-        const { error } = await supabase.from('Encomendas').insert([{ Apartamento: apto, Morador: moradorAtual?.Morador, Descrição: listaRascunho.join(' | '), Status: 'pendente' }]);
-        if(!error) {
-            localStorage.setItem('fotos_' + apto, JSON.stringify(listaFotos));
-            if(moradorAtual?.Status) {
-                const tel = moradorAtual.Status.replace(/\D/g, '');
-                const msg = `🏢 *PORTARIA REMBRANDT*%0A%0AEncomenda para o Apto *${apto}* disponível.`;
-                window.open(`https://api.whatsapp.com/send?phone=55${tel}&text=${msg}`, '_blank');
-            }
-            location.reload();
-        }
-    };
-
-    window.abrirEntrega = async (item) => {
-        entregaAtual = item;
-        const { data } = await supabase.from('Moradores').select('*').eq('Apartamento', item.Apartamento).maybeSingle();
-        moradorAtual = data;
-        document.getElementById('tela-registro').classList.add('hidden');
-        document.getElementById('lista-aguardando').classList.add('hidden');
-        document.getElementById('tela-entrega').classList.remove('hidden');
-        document.getElementById('detalhes-entrega-texto').innerHTML = `Apto ${item.Apartamento}`;
-        setTimeout(iniciarAssinatura, 300);
-    };
-
-    window.finalizarEntrega = async () => {
-        const rec = document.getElementById('nome-receptor').value;
-        if(!rec) return alert("Quem recebe?");
-        const { jsPDF } = window.jspdf; const doc = new jsPDF();
-        doc.text("RECIBO - REMBRANDT", 20, 20);
-        doc.text(`Apto: ${entregaAtual.Apartamento} | Recebido por: ${rec}`, 20, 30);
-        doc.addImage(canvas.toDataURL(), 'PNG', 20, 40, 60, 25);
-        doc.save(`Recibo_${entregaAtual.Apartamento}.pdf`);
-
-        if(moradorAtual?.Status) {
-            const tel = moradorAtual.Status.replace(/\D/g, '');
-            const msgR = `🏢 *PORTARIA REMBRANDT*%0A%0A✅ Encomenda entregue para: ${rec}`;
-            window.open(`https://api.whatsapp.com/send?phone=55${tel}&text=${msgR}`, '_blank');
-        }
-        await supabase.from('Encomendas').update({ Status: 'entregue' }).eq('id', entregaAtual.id);
+    window.salvarMorador = async () => {
+        const a = document.getElementById('cad-apto').value;
+        const n = document.getElementById('cad-nome').value;
+        const w = document.getElementById('cad-whats').value;
+        await supabase.from('Moradores').insert([{ Apartamento: a, Morador: n, Status: w, created_at: new Date().toISOString() }]);
         location.reload();
     };
-
+    window.excluirMorador = async (id) => { if(confirm("Apagar?")) { await supabase.from('Moradores').delete().eq('id', id); carregarTudo(); } };
     window.abrirGestao = () => { document.getElementById('tela-registro').classList.add('hidden'); document.getElementById('lista-aguardando').classList.add('hidden'); document.getElementById('tela-cadastro').classList.remove('hidden'); };
     window.fecharGestao = () => location.reload();
 
@@ -253,7 +277,6 @@
         canvas.addEventListener('touchmove', (e) => { if(desenhando) { const p = getPos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); } e.preventDefault(); }, {passive: false});
         canvas.addEventListener('touchend', () => desenhando = false);
     }
-
     window.verificarMorador = async () => {
         const a = document.getElementById('apt-select').value;
         const { data } = await supabase.from('Moradores').select('*').eq('Apartamento', a).maybeSingle();
