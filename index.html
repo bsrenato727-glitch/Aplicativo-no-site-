@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>PORTARIA REMBRANDT - V4.3</title>
+    <title>PORTARIA REMBRANDT - V4.4</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
@@ -28,6 +28,8 @@
     </style>
 </head>
 <body>
+
+<audio id="beep-sound" src="https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3" preload="auto"></audio>
 
 <header>🏢 PORTARIA REMBRANDT</header>
 
@@ -137,12 +139,19 @@
         }
     };
 
+    // --- SCANNER COM BIP ---
     window.abrirScanner = () => {
         const readerDiv = document.getElementById('reader');
+        const beep = document.getElementById('beep-sound');
         readerDiv.style.display = 'block';
         const html5QrCode = new Html5Qrcode("reader");
         html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 150 } },
-            (txt) => { document.getElementById('protocolo-input').value = txt; html5QrCode.stop(); readerDiv.style.display = 'none'; }
+            (txt) => { 
+                beep.play(); // Toca o som do bip
+                document.getElementById('protocolo-input').value = txt; 
+                html5QrCode.stop(); 
+                readerDiv.style.display = 'none'; 
+            }
         );
     };
 
@@ -210,10 +219,8 @@
 
     window.abrirEntrega = async (item) => {
         entregaAtual = item;
-        // Busca o morador para ter o WhatsApp na hora da entrega
         const { data } = await supabase.from('Moradores').select('*').eq('Apartamento', item.Apartamento).maybeSingle();
         moradorAtual = data;
-        
         document.getElementById('tela-registro').classList.add('hidden');
         document.getElementById('lista-aguardando').classList.add('hidden');
         document.getElementById('tela-entrega').classList.remove('hidden');
@@ -225,7 +232,6 @@
     window.finalizarEntrega = async () => {
         const receptor = document.getElementById('nome-receptor').value;
         if(!receptor) return alert("Quem está recebendo?");
-        
         try {
             const { jsPDF } = window.jspdf; const doc = new jsPDF();
             doc.text("RECIBO DE ENTREGA - REMBRANDT", 20, 20);
@@ -245,15 +251,12 @@
             doc.save(`Recibo_Apto_${entregaAtual.Apartamento}.pdf`);
             localStorage.removeItem('fotos_' + entregaAtual.Apartamento);
 
-            // NOVO: AVISO DE RETIRADA NO WHATSAPP
             if(moradorAtual?.Status) {
                 const tel = moradorAtual.Status.replace(/\D/g, '');
                 const msgRetirada = `🏢 *PORTARIA REMBRANDT*%0A%0A✅ Encomenda entregue!%0A*Apto:* ${entregaAtual.Apartamento}%0A*Recebido por:* ${receptor}%0A*Data:* ${dataHora}%0A%0A_O recibo em PDF foi gerado na portaria._`;
                 window.open(`https://api.whatsapp.com/send?phone=55${tel}&text=${msgRetirada}`, '_blank');
             }
-
         } catch(e) { console.error(e); }
-        
         await supabase.from('Encomendas').update({ Status: 'entregue' }).eq('id', entregaAtual.id);
         alert("Retirada concluída!");
         location.reload();
