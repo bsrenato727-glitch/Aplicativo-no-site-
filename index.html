@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Portaria Rembrandt - Sistema Oficial</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <style>
+        :root { --primary: #075E54; --accent: #25D366; --bg: #f0f2f5; --blue: #007bff; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); color: #333; }
+        header { background: var(--primary); color: white; padding: 15px; text-align: center; font-weight: bold; }
+        .container { max-width: 500px; margin: auto; padding: 15px; }
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        label { display: block; margin-top: 15px; font-weight: bold; font-size: 0.9rem; }
+        select, input, button { width: 100%; padding: 12px; margin-top: 8px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
+        .btn-success { background: var(--accent); color: white; border: none; font-weight: bold; cursor: pointer; }
+        .btn-outline { background: transparent; color: var(--primary); border: 1px solid var(--primary); font-weight: bold; margin-top: 10px; cursor: pointer; }
+        .encomenda-item { background: white; padding: 15px; border-radius: 8px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; border-left: 5px solid var(--primary); }
+        .preview-img { width: 100%; max-height: 150px; object-fit: contain; margin-top: 10px; border-radius: 8px; border: 1px solid #ddd; }
+        #signature-pad { border: 2px solid #ccc; background: #fff; width: 100%; height: 150px; border-radius: 8px; touch-action: none; }
+        .hidden { display: none !important; }
+        .aba-gestao { font-size: 13px; text-align: center; margin-top: 15px; color: var(--blue); text-decoration: underline; cursor: pointer; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<header>🏢 REMBRANDT - GESTÃO CLOUD</header>
+
+<div class="container">
+    <div id="tela-registro" class="card">
+        <h3>📥 Receber Encomendas</h3>
+        <label>Apartamento:</label>
+        <select id="apt-select" onchange="verificarMorador()"></select>
+        
+        <label>Descrição da Encomenda:</label>
+        <input type="text" id="desc-input" placeholder="Ex: Pacote Amazon / Shopee">
+        
+        <label>Foto da Encomenda (Opcional):</label>
+        <input type="file" id="foto-input" accept="image/*" capture="camera" onchange="previewFoto(this)">
+        <img id="img-preview" class="preview-img hidden">
+
+        <button class="btn-success" onclick="salvarEntrada()" style="margin-top: 20px;">REGISTRAR ENTRADA</button>
+        <div class="aba-gestao" onclick="abrirGestao()">⚙️ CADASTRAR NOVO APTO/MORADOR</div>
+    </div>
+
+    <div id="tela-moradores" class="card hidden">
+        <h3>👥 Cadastro de Moradores</h3>
+        <label>Número do Apartamento:</label>
+        <input type="text" id="moro-apto" placeholder="Ex: 101">
+        <label>Nome do Morador:</label>
+        <input type="text" id="moro-nome" placeholder="Nome completo">
+        <label>WhatsApp (Somente números com DDD):</label>
+        <input type="text" id="moro-whats" placeholder="Ex: 85999999999">
+        <button class="btn-success" onclick="salvarMorador()">SALVAR DADOS</button>
+        <button class="btn-outline" onclick="fecharGestao()">VOLTAR</button>
+    </div>
+
+    <div id="tela-entrega" class="card hidden">
+        <h3>📤 Retirar Encomenda</h3>
+        <p id="detalhe-info" style="font-weight: bold; color: var(--primary);"></p>
+        <label>Nome de quem está retirando:</label>
+        <input type="text" id="nome-receptor" placeholder="Quem vai assinar?">
+        <label>Assinatura Digital:</label>
+        <canvas id="signature-pad"></canvas>
+        <button class="btn-success" onclick="concluirEntrega()" style="margin-top: 20px;">FINALIZAR E ENVIAR WHATSAPP</button>
+        <button class="btn-outline" onclick="location.reload()">CANCELAR</button>
+    </div>
+
+    <div id="lista-container">
+        <h3>📦 Encomendas na Portaria</h3>
+        <div id="itens-lista"></div>
+    </div>
+</div>
+
+<script type="module">
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
+
+    const supabaseUrl = 'https://fpfykmxwtmngxeyyljaz.supabase.co'
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZwZnlrbXh3dG1uZ3hleXlsamF6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzODU5NjAsImV4cCI6MjA5MDk2MTk2MH0.yaFPUO_2phJwqma5VaHNfLqSqnuWqLZdxchL3YB6KSA'
+    const supabase = createClient(supabaseUrl, supabaseKey)
+
+    let moradorAtual = null;
+    let entregaAtual = null;
+    let fotoBase64 = null;
+    let canvas, ctx, desenhando = false;
+
+    async function init() {
+        const { data: moras } = await supabase.from('Moradores').select('*').order('Apartamento');
+        const sel = document.getElementById('apt-select');
+        sel.innerHTML = '<option value="">Selecione o Apto...</option>';
+        if(moras) moras.forEach(m => sel.innerHTML += `<option value="${m.Apartamento}">Apto ${m.Apartamento} - ${m.Morador}</option>`);
+
+        const { data: encs } = await supabase.from('Encomendas').select('*').eq('Status', 'pendente');
+        const lista = document.getElementById('itens-lista');
+        lista.innerHTML = "";
+        if(encs) encs.forEach(i => {
+            lista.innerHTML += `<div class="encomenda-item">
+                <span><b>Apto ${i.Apartamento}</b><br><small>${i.Descrição}</small></span>
+                <button class="btn-success" style="width:auto; padding:8px;" onclick='abrirEntrega(${JSON.stringify(i)})'>ENTREGAR</button>
+            </div>`;
+        });
+        configurarCanvas();
+    }
+
+    window.previewFoto = (input) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            fotoBase64 = e.target.result;
+            const img = document.getElementById('img-preview');
+            img.src = e.target.result; img.classList.remove('hidden');
+        };
+        reader.readAsDataURL(input.files[0]);
+    }
+
+    window.verificarMorador = async function() {
+        const apto = document.getElementById('apt-select').value;
+        const { data } = await supabase.from('Moradores').select('*').eq('Apartamento', apto).maybeSingle();
+        moradorAtual = data;
+    }
+
+    window.salvarMorador = async function() {
+        const apt = document.getElementById('moro-apto').value;
+        const nom = document.getElementById('moro-nome').value;
+        const zap = document.getElementById('moro-whats').value;
+        if(!apt || !nom) return alert("Preencha Apartamento e Nome!");
+
+        const { error } = await supabase.from('Moradores').insert([{ 
+            Apartamento: apt, Morador: nom, Status: zap, created_at: new Date().toISOString() 
+        }]);
+        if(!error) { alert("✅ Apartamento Cadastrado!"); location.reload(); }
+        else { alert("Erro: " + error.message); }
+    }
+
+    window.salvarEntrada = async function() {
+        const apto = document.getElementById('apt-select').value;
+        const desc = document.getElementById('desc-input').value;
+        if(!apto || !desc) return alert("Selecione o Apto e a Descrição!");
+
+        const { error } = await supabase.from('Encomendas').insert([{ 
+            Apartamento: apto, Morador: moradorAtual?.Morador || "", Descrição: desc, Status: 'pendente', created_at: new Date().toISOString() 
+        }]);
+        if(!error) { alert("📦 Registrado!"); location.reload(); }
+    }
+
+    window.abrirEntrega = (item) => {
+        entregaAtual = item;
+        document.getElementById('tela-registro').classList.add('hidden');
+        document.getElementById('lista-container').classList.add('hidden');
+        document.getElementById('tela-entrega').classList.remove('hidden');
+        document.getElementById('detalhe-info').innerText = `Entregando Encomenda para o Apto ${item.Apartamento}`;
+    }
+
+    window.concluirEntrega = async function() {
+        const receptor = document.getElementById('nome-receptor').value;
+        if(!receptor) return alert("Quem está recebendo?");
+
+        const { error } = await supabase.from('Encomendas').update({ Status: 'entregue' }).eq('id', entregaAtual.id);
+        
+        if(!error) {
+            gerarPDF(receptor);
+            dispararWhatsApp(receptor);
+            alert("✅ Entrega finalizada!");
+            location.reload();
+        }
+    }
+
+    function dispararWhatsApp(receptor) {
+        // Busca o WhatsApp na coluna 'Status' da tabela 'Moradores'
+        supabase.from('Moradores').select('Status').eq('Apartamento', entregaAtual.Apartamento).maybeSingle().then(({data}) => {
+            if(data && data.Status) {
+                const msg = window.encodeURIComponent(`🏢 *PORTARIA REMBRANDT*\nSua encomenda (${entregaAtual.Descrição}) foi entregue agora para: *${receptor}*.`);
+                window.open(`https://api.whatsapp.com/send?phone=55${data.Status.replace(/\D/g, '')}&text=${msg}`, '_blank');
+            }
+        });
+    }
+
+    function gerarPDF(receptor) {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        doc.text("COMPROVANTE DE ENTREGA - REMBRANDT", 20, 20);
+        doc.text(`Apto: ${entregaAtual.Apartamento}`, 20, 40);
+        doc.text(`Morador: ${entregaAtual.Morador}`, 20, 50);
+        doc.text(`Recebido por: ${receptor}`, 20, 60);
+        doc.text(`Data: ${new Date().toLocaleString()}`, 20, 70);
+        if(fotoBase64) doc.addImage(fotoBase64, 'JPEG', 20, 80, 50, 40);
+        doc.text("Assinatura:", 20, 130);
+        doc.addImage(canvas.toDataURL(), 'PNG', 20, 135, 70, 25);
+        doc.save(`Entrega_Apto_${entregaAtual.Apartamento}.pdf`);
+    }
+
+    function configurarCanvas() {
+        canvas = document.getElementById('signature-pad');
+        ctx = canvas.getContext('2d');
+        canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight;
+        const pos = (e) => {
+            const r = canvas.getBoundingClientRect();
+            const t = e.touches ? e.touches[0] : e;
+            return { x: t.clientX - r.left, y: t.clientY - r.top };
+        };
+        canvas.onmousedown = canvas.ontouchstart = (e) => { desenhando = true; const p = pos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); e.preventDefault(); };
+        canvas.onmousemove = canvas.ontouchmove = (e) => { if(!desenhando) return; const p = pos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); e.preventDefault(); };
+        canvas.onmouseup = canvas.ontouchend = () => desenhando = false;
+    }
+
+    window.abrirGestao = () => { document.getElementById('tela-registro').classList.add('hidden'); document.getElementById('tela-moradores').classList.remove('hidden'); }
+    window.fecharGestao = () => { document.getElementById('tela-moradores').classList.add('hidden'); document.getElementById('tela-registro').classList.remove('hidden'); }
+    window.onload = init;
+</script>
+</body>
+</html>
