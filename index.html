@@ -3,77 +3,75 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Portaria Rembrandt - Sistema Completo</title>
+    <title>PORTARIA REMBRANDT - V3</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
-        :root { --primary: #075E54; --accent: #25D366; --bg: #f0f2f5; --blue: #007bff; }
-        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); color: #333; }
-        header { background: var(--primary); color: white; padding: 15px; text-align: center; font-weight: bold; }
-        .container { max-width: 500px; margin: auto; padding: 15px; }
-        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        label { display: block; margin-top: 15px; font-weight: bold; font-size: 0.9rem; }
-        select, input, button { width: 100%; padding: 12px; margin-top: 8px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
-        .btn-success { background: var(--accent); color: white; border: none; font-weight: bold; cursor: pointer; }
-        .btn-outline { background: transparent; color: var(--primary); border: 1px solid var(--primary); font-weight: bold; margin-top: 10px; cursor: pointer; }
-        #reader { width: 100%; border-radius: 8px; margin-top: 10px; display: none; background: #000; overflow: hidden; }
-        #signature-pad { border: 2px solid #ccc; background: #fff; width: 100%; height: 150px; border-radius: 8px; touch-action: none; }
-        .encomenda-item { background: white; padding: 15px; border-radius: 8px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; border-left: 5px solid var(--primary); }
-        .preview-img { width: 100%; max-height: 150px; object-fit: contain; margin-top: 10px; border-radius: 8px; border: 1px solid #ddd; }
+        :root { --primary: #075E54; --accent: #25D366; --bg: #f0f2f5; --red: #ff4d4d; --blue: #007bff; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); touch-action: manipulation; }
+        header { background: var(--primary); color: white; padding: 15px; text-align: center; font-weight: bold; position: sticky; top: 0; z-index: 100; }
+        .container { max-width: 500px; margin: auto; padding: 10px; }
+        .card { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 15px; }
+        input, select, button { width: 100%; padding: 12px; margin-top: 5px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
+        .btn-success { background: var(--accent); color: white; border: none; font-weight: bold; }
+        .btn-outline { background: white; color: var(--primary); border: 1px solid var(--primary); margin-top: 10px; }
+        
+        .galeria-fotos { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+        .foto-container { position: relative; width: 80px; height: 80px; }
+        .foto-mini { width: 100%; height: 100%; object-fit: cover; border-radius: 8px; border: 1px solid #ccc; }
+        .btn-del { position: absolute; top: -5px; right: -5px; background: var(--red); color: white; border: none; border-radius: 50%; width: 22px; height: 22px; font-weight: bold; display: flex; align-items: center; justify-content: center; }
+        
+        #signature-pad { border: 2px solid #333; background: #fff; width: 100%; height: 200px; border-radius: 8px; touch-action: none; margin-top: 10px; }
+        
+        /* Estilo para lista de itens em colunas/linhas */
+        .item-temp { background: #ffffff; padding: 10px; margin-top: 8px; border-radius: 6px; font-size: 0.95rem; border: 1px solid #dae1e9; border-left: 5px solid var(--blue); box-shadow: 2px 2px 5px rgba(0,0,0,0.05); }
+        .encomenda-info-list { margin: 10px 0; padding: 0; list-style: none; }
+        .encomenda-info-list li { padding: 5px 0; border-bottom: 1px dashed #ccc; }
+        
         .hidden { display: none !important; }
-        .scanner-box { border: 2px dashed var(--blue); padding: 12px; text-align: center; border-radius: 8px; margin-top: 10px; cursor: pointer; color: var(--blue); background: #eef6ff; font-weight: bold; }
-        .aba-gestao { font-size: 13px; text-align: center; margin-top: 15px; color: var(--blue); text-decoration: underline; cursor: pointer; font-weight: bold; }
+        #reader { width: 100%; border-radius: 8px; margin-top: 10px; display: none; background: #000; overflow: hidden; }
     </style>
 </head>
 <body>
 
-<header>🏢 REMBRANDT - GESTÃO CLOUD</header>
+<header>🏢 PORTARIA REMBRANDT</header>
 
 <div class="container">
     <div id="tela-registro" class="card">
-        <h3>📥 Receber Encomendas</h3>
-        <label>Apartamento:</label>
-        <select id="apt-select" onchange="verificarMorador()"></select>
+        <h3>📥 Registrar Encomenda</h3>
+        <select id="apt-select" onchange="window.verificarMorador()"></select>
         
-        <label>Código/Protocolo:</label>
-        <input type="text" id="protocolo-input" placeholder="Clique abaixo para escanear">
-        <div class="scanner-box" onclick="abrirScanner()">📷 LER CÓDIGO (BIP)</div>
-        <div id="reader"></div>
-        
-        <label>Descrição:</label>
-        <input type="text" id="desc-input" placeholder="Ex: Pacote Shopee">
-        
-        <label>Foto da Encomenda:</label>
-        <input type="file" id="foto-input" accept="image/*" capture="camera" onchange="previewFoto(this)">
-        <img id="img-preview" class="preview-img hidden">
+        <div style="background: #f9f9f9; padding: 10px; border-radius: 8px; margin-top: 10px; border: 1px solid #eee;">
+            <input type="text" id="protocolo-input" placeholder="Protocolo/Código">
+            <button class="btn-outline" onclick="window.abrirScanner()">📷 LER CÓDIGO (SCANNER)</button>
+            <div id="reader"></div>
+            <input type="text" id="desc-input" placeholder="Descrição do Item">
+            <button class="btn-outline" style="background:var(--blue); color:white; border:none;" onclick="window.incluirNaLista()">➕ ADICIONAR NA LISTA</button>
+        </div>
 
-        <button class="btn-success" onclick="salvarEntrada()" style="margin-top: 20px;">REGISTRAR ENTRADA</button>
-        <div class="aba-gestao" onclick="abrirGestao()">⚙️ CADASTRAR NOVO APTO/MORADOR</div>
-    </div>
+        <div id="lista-temp"></div>
 
-    <div id="tela-moradores" class="card hidden">
-        <h3>👥 Cadastro de Moradores</h3>
-        <label>Apartamento:</label>
-        <input type="text" id="moro-apto" placeholder="Ex: 101">
-        <label>Nome do Morador:</label>
-        <input type="text" id="moro-nome" placeholder="Nome completo">
-        <label>WhatsApp (com DDD):</label>
-        <input type="text" id="moro-whats" placeholder="Ex: 85999999999">
-        <button class="btn-success" onclick="salvarMorador()">SALVAR DADOS</button>
-        <button class="btn-outline" onclick="fecharGestao()">VOLTAR</button>
+        <label style="display:block; margin-top:20px; font-weight:bold;">📸 Fotos (Apenas p/ o Comprovante):</label>
+        <input type="file" id="foto-input" accept="image/*" capture="camera" onchange="window.processarFoto(this)">
+        <div id="galeria" class="galeria-fotos"></div>
+
+        <button class="btn-success" id="btn-salvar-geral" onclick="window.registrarEntrada()" style="margin-top:25px; display:none;">SALVAR E AVISAR NO WHATSAPP</button>
     </div>
 
     <div id="tela-entrega" class="card hidden">
-        <h3>📤 Retirar Encomenda</h3>
-        <p id="detalhe-info" style="font-weight: bold; color: var(--primary);"></p>
-        <label>Quem está retirando?</label>
-        <input type="text" id="nome-receptor" placeholder="Nome de quem assina">
-        <label>Assinatura:</label>
+        <h3>📤 Retirada de Encomenda</h3>
+        <div id="detalhes-entrega-texto" style="margin-bottom: 15px; font-size: 0.9rem; color: #555;"></div>
+        
+        <input type="text" id="nome-receptor" placeholder="Nome de quem está recebendo">
+        
+        <label style="display:block; margin-top:15px;">Assine com o dedo no quadro abaixo:</label>
         <canvas id="signature-pad"></canvas>
-        <button class="btn-success" onclick="concluirEntrega()" style="margin-top: 20px;">FINALIZAR E ENVIAR WHATSAPP</button>
+        
+        <button class="btn-success" onclick="window.finalizarEntrega()" style="margin-top:20px;">CONCLUIR E GERAR PDF</button>
+        <button class="btn-outline" onclick="location.reload()">VOLTAR</button>
     </div>
 
-    <div id="lista-container">
+    <div id="lista-aguardando">
         <h3>📦 Encomendas na Portaria</h3>
         <div id="itens-lista"></div>
     </div>
@@ -81,140 +79,216 @@
 
 <script type="module">
     import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
+    const supabase = createClient('https://fpfykmxwtmngxeyyljaz.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZwZnlrbXh3dG1uZ3hleXlsamF6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzODU5NjAsImV4cCI6MjA5MDk2MTk2MH0.yaFPUO_2phJwqma5VaHNfLqSqnuWqLZdxchL3YB6KSA');
 
-    const supabaseUrl = 'https://fpfykmxwtmngxeyyljaz.supabase.co'
-    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZwZnlrbXh3dG1uZ3hleXlsamF6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzODU5NjAsImV4cCI6MjA5MDk2MTk2MH0.yaFPUO_2phJwqma5VaHNfLqSqnuWqLZdxchL3YB6KSA'
-    const supabase = createClient(supabaseUrl, supabaseKey)
-
-    let moradorAtual = null;
-    let entregaAtual = null;
-    let fotoBase64 = null;
+    let moradorAtual = null, entregaAtual = null, listaRascunho = [], listaFotos = [];
     let canvas, ctx, desenhando = false;
-    let html5QrCode = null;
 
-    async function init() {
+    window.onload = carregarTudo;
+
+    async function carregarTudo() {
         const { data: moras } = await supabase.from('Moradores').select('*').order('Apartamento');
         const sel = document.getElementById('apt-select');
-        sel.innerHTML = '<option value="">Selecione...</option>';
+        sel.innerHTML = '<option value="">Selecione o Apto...</option>';
         if(moras) moras.forEach(m => sel.innerHTML += `<option value="${m.Apartamento}">Apto ${m.Apartamento} - ${m.Morador}</option>`);
 
-        const { data: encs } = await supabase.from('Encomendas').select('*').eq('Status', 'pendente');
+        const { data: encs } = await supabase.from('Encomendas').select('*').eq('Status', 'pendente').order('created_at', {ascending: false});
         const lista = document.getElementById('itens-lista');
         lista.innerHTML = "";
         if(encs) encs.forEach(i => {
-            lista.innerHTML += `<div class="encomenda-item">
-                <span><b>Apto ${i.Apartamento}</b><br><small>${i.Descrição}</small></span>
-                <button class="btn-success" style="width:auto; padding:8px;" onclick='abrirEntrega(${JSON.stringify(i)})'>ENTREGAR</button>
+            // Transforma a descrição salvada em linhas para visualização na portaria
+            const itensFormatados = i.Descrição.split(' | ').map(line => `• ${line}`).join('<br>');
+            lista.innerHTML += `<div class="card" style="display:flex; justify-content:space-between; align-items:center; padding:12px; border-left:6px solid var(--primary); margin-bottom:8px;">
+                <span><b>Apto ${i.Apartamento}</b><br><small>${itensFormatados}</small></span>
+                <button onclick='window.abrirEntrega(${JSON.stringify(i)})' style="width:auto; padding:8px 15px; background:var(--primary); color:white; border:none; border-radius:5px; font-weight:bold;">ENTREGAR</button>
             </div>`;
         });
-        configurarCanvas();
     }
 
     window.abrirScanner = () => {
         const readerDiv = document.getElementById('reader');
         readerDiv.style.display = 'block';
-        html5QrCode = new Html5Qrcode("reader");
-        html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, (text) => {
-            document.getElementById('protocolo-input').value = text;
-            html5QrCode.stop(); readerDiv.style.display = 'none';
-        }).catch(err => alert("Erro ao abrir câmera: " + err));
+        const html5QrCode = new Html5Qrcode("reader");
+        html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 150 } },
+            (decodedText) => {
+                document.getElementById('protocolo-input').value = decodedText;
+                html5QrCode.stop();
+                readerDiv.style.display = 'none';
+            }
+        );
+    };
+
+    window.processarFoto = (input) => {
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvasComp = document.createElement('canvas');
+                    const max_size = 800;
+                    let width = img.width, height = img.height;
+                    if (width > height) { if (width > max_size) { height *= max_size / width; width = max_size; } }
+                    else { if (height > max_size) { width *= max_size / height; height = max_size; } }
+                    canvasComp.width = width; canvasComp.height = height;
+                    const ctxComp = canvasComp.getContext('2d');
+                    ctxComp.drawImage(img, 0, 0, width, height);
+                    listaFotos.push(canvasComp.toDataURL('image/jpeg', 0.7));
+                    renderGaleria();
+                    input.value = ""; 
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(input.files[0]);
+        }
+    };
+
+    window.removerFoto = (idx) => {
+        listaFotos.splice(idx, 1);
+        renderGaleria();
+    };
+
+    function renderGaleria() {
+        const gal = document.getElementById('galeria');
+        gal.innerHTML = listaFotos.map((f, i) => `
+            <div class="foto-container">
+                <img src="${f}" class="foto-mini">
+                <button class="btn-del" onclick="window.removerFoto(${i})">X</button>
+            </div>
+        `).join("");
     }
 
-    window.previewFoto = (input) => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            fotoBase64 = e.target.result;
-            const img = document.getElementById('img-preview');
-            img.src = e.target.result; img.classList.remove('hidden');
-        };
-        reader.readAsDataURL(input.files[0]);
-    }
+    window.incluirNaLista = () => {
+        const prot = document.getElementById('protocolo-input').value;
+        const desc = document.getElementById('desc-input').value;
+        if(!desc) return alert("Descreva o item!");
+        
+        // Formatação em linha com negrito para o protocolo se houver
+        const itemTexto = prot ? `[Cód: ${prot}] ${desc}` : `${desc}`;
+        listaRascunho.push(itemTexto);
+        
+        document.getElementById('lista-temp').innerHTML = listaRascunho.map(i => `<div class="item-temp">📦 ${i}</div>`).join("");
+        document.getElementById('protocolo-input').value = "";
+        document.getElementById('desc-input').value = "";
+        document.getElementById('btn-salvar-geral').style.display = 'block';
+    };
 
-    window.salvarMorador = async function() {
-        const apt = document.getElementById('moro-apto').value;
-        const nom = document.getElementById('moro-nome').value;
-        const zap = document.getElementById('moro-whats').value;
-        const { error } = await supabase.from('Moradores').insert([{ 
-            Apartamento: apt, Morador: nom, Status: zap, created_at: new Date().toISOString() 
-        }]);
-        if(!error) { alert("Cadastrado!"); location.reload(); }
-        else alert("Erro: " + error.message);
-    }
-
-    window.salvarEntrada = async function() {
+    window.registrarEntrada = async () => {
         const apto = document.getElementById('apt-select').value;
-        const desc = (document.getElementById('protocolo-input').value + " " + document.getElementById('desc-input').value).trim();
-        if(!apto || !desc) return alert("Preencha os campos!");
-        const { error } = await supabase.from('Encomendas').insert([{ 
-            Apartamento: apto, Morador: moradorAtual?.Morador || "", Descrição: desc, Status: 'pendente', created_at: new Date().toISOString() 
+        if(!apto) return alert("Selecione o Apto!");
+
+        const { error } = await supabase.from('Encomendas').insert([{
+            Apartamento: apto, 
+            Morador: moradorAtual?.Morador, 
+            Descrição: listaRascunho.join(' | '), // Salva com separador para quebrar depois
+            Status: 'pendente'
         }]);
-        if(!error) { alert("Registrado!"); location.reload(); }
-    }
+
+        if(!error) {
+            localStorage.setItem('fotos_' + apto, JSON.stringify(listaFotos));
+            if(moradorAtual?.Status) {
+                const tel = moradorAtual.Status.replace(/\D/g, '');
+                // Quebra a mensagem do WhatsApp em LINHAS
+                const itensMsg = listaRascunho.map(it => `📦 *${it}*`).join("%0A");
+                const msg = `🏢 *PORTARIA REMBRANDT*%0A%0AOlá! Novas encomendas para o Apto *${apto}*:%0A${itensMsg}%0A%0A_Favor retirar na portaria._`;
+                window.open(`https://api.whatsapp.com/send?phone=55${tel}&text=${msg}`, '_blank');
+            }
+            alert("Registrado com sucesso!"); location.reload();
+        }
+    };
 
     window.abrirEntrega = (item) => {
         entregaAtual = item;
         document.getElementById('tela-registro').classList.add('hidden');
-        document.getElementById('lista-container').classList.add('hidden');
+        document.getElementById('lista-aguardando').classList.add('hidden');
         document.getElementById('tela-entrega').classList.remove('hidden');
-        document.getElementById('detalhe-info').innerText = `Entregando Apto ${item.Apartamento}`;
-    }
+        
+        // Mostra o que está sendo entregue em linhas
+        const linhasDetalhadas = item.Descrição.split(' | ').map(l => `• ${l}`).join('<br>');
+        document.getElementById('detalhes-entrega-texto').innerHTML = `<b>Entregando para Apto ${item.Apartamento}:</b><br>${linhasDetalhadas}`;
+        
+        setTimeout(iniciarAssinatura, 300);
+    };
 
-    window.concluirEntrega = async function() {
+    window.finalizarEntrega = async () => {
         const receptor = document.getElementById('nome-receptor').value;
-        if(!receptor) return alert("Quem está recebendo?");
-        const { error } = await supabase.from('Encomendas').update({ Status: 'entregue' }).eq('id', entregaAtual.id);
-        if(!error) {
-            gerarPDF(receptor);
-            enviarZap(receptor);
-            alert("Concluído!"); location.reload();
-        }
-    }
+        if(!receptor) return alert("Digite o nome de quem está recebendo.");
 
-    function enviarZap(receptor) {
-        supabase.from('Moradores').select('Status').eq('Apartamento', entregaAtual.Apartamento).maybeSingle().then(({data}) => {
-            if(data && data.Status) {
-                const tel = data.Status.replace(/\D/g, '');
-                const msg = window.encodeURIComponent(`🏢 *PORTARIA REMBRANDT*\nSua encomenda (${entregaAtual.Descrição}) foi entregue para: *${receptor}*.`);
-                window.open(`https://api.whatsapp.com/send?phone=55${tel}&text=${msg}`, '_blank');
+        try {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            doc.setFont("helvetica", "bold");
+            doc.text("RECIBO DE ENTREGA - PORTARIA REMBRANDT", 20, 20);
+            
+            doc.setFontSize(10);
+            doc.setFont("helvetica", "normal");
+            doc.text(`Apartamento: ${entregaAtual.Apartamento}`, 20, 35);
+            doc.text(`Recebido por: ${receptor}`, 20, 42);
+            doc.text(`Data/Hora: ${new Date().toLocaleString()}`, 20, 49);
+            
+            doc.text("Itens Entregues:", 20, 60);
+            const itensArray = entregaAtual.Descrição.split(' | ');
+            let yPos = 65;
+            itensArray.forEach(item => {
+                doc.text(`- ${item}`, 25, yPos);
+                yPos += 7;
+            });
+
+            // FOTOS (Só aparecem aqui no PDF)
+            const fotosRec = JSON.parse(localStorage.getItem('fotos_' + entregaAtual.Apartamento) || "[]");
+            if(fotosRec.length > 0) {
+                yPos += 5;
+                doc.text("Anexos fotográficos:", 20, yPos);
+                yPos += 5;
+                let x = 20;
+                fotosRec.slice(0, 4).forEach((foto) => {
+                    doc.addImage(foto, 'JPEG', x, yPos, 40, 40);
+                    x += 45;
+                });
+                yPos += 45;
             }
-        });
-    }
 
-    function gerarPDF(receptor) {
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF();
-        doc.text("COMPROVANTE REMBRANDT", 20, 20);
-        doc.text(`Apto: ${entregaAtual.Apartamento}`, 20, 40);
-        doc.text(`Recebido por: ${receptor}`, 20, 50);
-        if(fotoBase64) doc.addImage(fotoBase64, 'JPEG', 20, 60, 50, 40);
-        doc.text("Assinatura:", 20, 110);
-        doc.addImage(canvas.toDataURL(), 'PNG', 20, 115, 70, 25);
-        doc.save(`Recibo_Apto_${entregaAtual.Apartamento}.pdf`);
-    }
+            doc.text("Assinatura do Recebedor:", 20, yPos + 10);
+            doc.addImage(canvas.toDataURL(), 'PNG', 20, yPos + 15, 80, 30);
+            
+            doc.save(`Recibo_Apto_${entregaAtual.Apartamento}.pdf`);
+            localStorage.removeItem('fotos_' + entregaAtual.Apartamento);
+        } catch(e) { console.error(e); }
 
-    function configurarCanvas() {
+        // MENSAGEM FINAL DE RETIRADA NO WHATSAPP
+        const { data: m } = await supabase.from('Moradores').select('Status').eq('Apartamento', entregaAtual.Apartamento).maybeSingle();
+        if(m?.Status) {
+            const tel = m.Status.replace(/\D/g, '');
+            const msgFinal = `🏢 *PORTARIA REMBRANDT*%0A%0A✅ *ENCOMENDA ENTREGUE*%0A📍 Apto: ${entregaAtual.Apartamento}%0A👤 Recebido por: ${receptor}%0A📅 Data: ${new Date().toLocaleString()}`;
+            window.open(`https://api.whatsapp.com/send?phone=55${tel}&text=${msgFinal}`, '_blank');
+        }
+
+        await supabase.from('Encomendas').update({ Status: 'entregue' }).eq('id', entregaAtual.id);
+        alert("Entrega finalizada!"); location.reload();
+    };
+
+    function iniciarAssinatura() {
         canvas = document.getElementById('signature-pad');
         ctx = canvas.getContext('2d');
         canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight;
-        const pos = (e) => {
+        ctx.lineWidth = 3; ctx.strokeStyle = "#000";
+        const getPos = (e) => {
             const r = canvas.getBoundingClientRect();
             const t = e.touches ? e.touches[0] : e;
             return { x: t.clientX - r.left, y: t.clientY - r.top };
         };
-        canvas.onmousedown = canvas.ontouchstart = (e) => { desenhando = true; const p = pos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); e.preventDefault(); };
-        canvas.onmousemove = canvas.ontouchmove = (e) => { if(!desenhando) return; const p = pos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); e.preventDefault(); };
-        canvas.onmouseup = canvas.ontouchend = () => desenhando = false;
+        const start = (e) => { desenhando = true; ctx.beginPath(); const p = getPos(e); ctx.moveTo(p.x, p.y); e.preventDefault(); };
+        const move = (e) => { if(!desenhando) return; const p = getPos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); e.preventDefault(); };
+        const end = () => desenhando = false;
+        canvas.addEventListener('touchstart', start, {passive: false});
+        canvas.addEventListener('touchmove', move, {passive: false});
+        canvas.addEventListener('touchend', end);
     }
 
-    window.verificarMorador = async function() {
-        const apto = document.getElementById('apt-select').value;
-        const { data } = await supabase.from('Moradores').select('*').eq('Apartamento', apto).maybeSingle();
+    window.verificarMorador = async () => {
+        const a = document.getElementById('apt-select').value;
+        const { data } = await supabase.from('Moradores').select('*').eq('Apartamento', a).maybeSingle();
         moradorAtual = data;
-    }
-
-    window.abrirGestao = () => { document.getElementById('tela-registro').classList.add('hidden'); document.getElementById('tela-moradores').classList.remove('hidden'); }
-    window.fecharGestao = () => { document.getElementById('tela-moradores').classList.add('hidden'); document.getElementById('tela-registro').classList.remove('hidden'); }
-    window.onload = init;
+    };
 </script>
 </body>
 </html>
