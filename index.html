@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Portaria Rembrandt - Sistema Oficial</title>
+    <title>Portaria Rembrandt - Sistema Completo</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
@@ -16,10 +16,12 @@
         select, input, button { width: 100%; padding: 12px; margin-top: 8px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
         .btn-success { background: var(--accent); color: white; border: none; font-weight: bold; cursor: pointer; }
         .btn-outline { background: transparent; color: var(--primary); border: 1px solid var(--primary); font-weight: bold; margin-top: 10px; cursor: pointer; }
+        #reader { width: 100%; border-radius: 8px; margin-top: 10px; display: none; background: #000; overflow: hidden; }
+        #signature-pad { border: 2px solid #ccc; background: #fff; width: 100%; height: 150px; border-radius: 8px; touch-action: none; }
         .encomenda-item { background: white; padding: 15px; border-radius: 8px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; border-left: 5px solid var(--primary); }
         .preview-img { width: 100%; max-height: 150px; object-fit: contain; margin-top: 10px; border-radius: 8px; border: 1px solid #ddd; }
-        #signature-pad { border: 2px solid #ccc; background: #fff; width: 100%; height: 150px; border-radius: 8px; touch-action: none; }
         .hidden { display: none !important; }
+        .scanner-box { border: 2px dashed var(--blue); padding: 12px; text-align: center; border-radius: 8px; margin-top: 10px; cursor: pointer; color: var(--blue); background: #eef6ff; font-weight: bold; }
         .aba-gestao { font-size: 13px; text-align: center; margin-top: 15px; color: var(--blue); text-decoration: underline; cursor: pointer; font-weight: bold; }
     </style>
 </head>
@@ -33,10 +35,15 @@
         <label>Apartamento:</label>
         <select id="apt-select" onchange="verificarMorador()"></select>
         
-        <label>Descrição da Encomenda:</label>
-        <input type="text" id="desc-input" placeholder="Ex: Pacote Amazon / Shopee">
+        <label>Código/Protocolo:</label>
+        <input type="text" id="protocolo-input" placeholder="Clique abaixo para escanear">
+        <div class="scanner-box" onclick="abrirScanner()">📷 LER CÓDIGO (BIP)</div>
+        <div id="reader"></div>
         
-        <label>Foto da Encomenda (Opcional):</label>
+        <label>Descrição:</label>
+        <input type="text" id="desc-input" placeholder="Ex: Pacote Shopee">
+        
+        <label>Foto da Encomenda:</label>
         <input type="file" id="foto-input" accept="image/*" capture="camera" onchange="previewFoto(this)">
         <img id="img-preview" class="preview-img hidden">
 
@@ -46,11 +53,11 @@
 
     <div id="tela-moradores" class="card hidden">
         <h3>👥 Cadastro de Moradores</h3>
-        <label>Número do Apartamento:</label>
+        <label>Apartamento:</label>
         <input type="text" id="moro-apto" placeholder="Ex: 101">
         <label>Nome do Morador:</label>
         <input type="text" id="moro-nome" placeholder="Nome completo">
-        <label>WhatsApp (Somente números com DDD):</label>
+        <label>WhatsApp (com DDD):</label>
         <input type="text" id="moro-whats" placeholder="Ex: 85999999999">
         <button class="btn-success" onclick="salvarMorador()">SALVAR DADOS</button>
         <button class="btn-outline" onclick="fecharGestao()">VOLTAR</button>
@@ -59,12 +66,11 @@
     <div id="tela-entrega" class="card hidden">
         <h3>📤 Retirar Encomenda</h3>
         <p id="detalhe-info" style="font-weight: bold; color: var(--primary);"></p>
-        <label>Nome de quem está retirando:</label>
-        <input type="text" id="nome-receptor" placeholder="Quem vai assinar?">
-        <label>Assinatura Digital:</label>
+        <label>Quem está retirando?</label>
+        <input type="text" id="nome-receptor" placeholder="Nome de quem assina">
+        <label>Assinatura:</label>
         <canvas id="signature-pad"></canvas>
         <button class="btn-success" onclick="concluirEntrega()" style="margin-top: 20px;">FINALIZAR E ENVIAR WHATSAPP</button>
-        <button class="btn-outline" onclick="location.reload()">CANCELAR</button>
     </div>
 
     <div id="lista-container">
@@ -84,11 +90,12 @@
     let entregaAtual = null;
     let fotoBase64 = null;
     let canvas, ctx, desenhando = false;
+    let html5QrCode = null;
 
     async function init() {
         const { data: moras } = await supabase.from('Moradores').select('*').order('Apartamento');
         const sel = document.getElementById('apt-select');
-        sel.innerHTML = '<option value="">Selecione o Apto...</option>';
+        sel.innerHTML = '<option value="">Selecione...</option>';
         if(moras) moras.forEach(m => sel.innerHTML += `<option value="${m.Apartamento}">Apto ${m.Apartamento} - ${m.Morador}</option>`);
 
         const { data: encs } = await supabase.from('Encomendas').select('*').eq('Status', 'pendente');
@@ -103,6 +110,16 @@
         configurarCanvas();
     }
 
+    window.abrirScanner = () => {
+        const readerDiv = document.getElementById('reader');
+        readerDiv.style.display = 'block';
+        html5QrCode = new Html5Qrcode("reader");
+        html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, (text) => {
+            document.getElementById('protocolo-input').value = text;
+            html5QrCode.stop(); readerDiv.style.display = 'none';
+        }).catch(err => alert("Erro ao abrir câmera: " + err));
+    }
+
     window.previewFoto = (input) => {
         const reader = new FileReader();
         reader.onload = (e) => {
@@ -113,34 +130,25 @@
         reader.readAsDataURL(input.files[0]);
     }
 
-    window.verificarMorador = async function() {
-        const apto = document.getElementById('apt-select').value;
-        const { data } = await supabase.from('Moradores').select('*').eq('Apartamento', apto).maybeSingle();
-        moradorAtual = data;
-    }
-
     window.salvarMorador = async function() {
         const apt = document.getElementById('moro-apto').value;
         const nom = document.getElementById('moro-nome').value;
         const zap = document.getElementById('moro-whats').value;
-        if(!apt || !nom) return alert("Preencha Apartamento e Nome!");
-
         const { error } = await supabase.from('Moradores').insert([{ 
             Apartamento: apt, Morador: nom, Status: zap, created_at: new Date().toISOString() 
         }]);
-        if(!error) { alert("✅ Apartamento Cadastrado!"); location.reload(); }
-        else { alert("Erro: " + error.message); }
+        if(!error) { alert("Cadastrado!"); location.reload(); }
+        else alert("Erro: " + error.message);
     }
 
     window.salvarEntrada = async function() {
         const apto = document.getElementById('apt-select').value;
-        const desc = document.getElementById('desc-input').value;
-        if(!apto || !desc) return alert("Selecione o Apto e a Descrição!");
-
+        const desc = (document.getElementById('protocolo-input').value + " " + document.getElementById('desc-input').value).trim();
+        if(!apto || !desc) return alert("Preencha os campos!");
         const { error } = await supabase.from('Encomendas').insert([{ 
             Apartamento: apto, Morador: moradorAtual?.Morador || "", Descrição: desc, Status: 'pendente', created_at: new Date().toISOString() 
         }]);
-        if(!error) { alert("📦 Registrado!"); location.reload(); }
+        if(!error) { alert("Registrado!"); location.reload(); }
     }
 
     window.abrirEntrega = (item) => {
@@ -148,29 +156,26 @@
         document.getElementById('tela-registro').classList.add('hidden');
         document.getElementById('lista-container').classList.add('hidden');
         document.getElementById('tela-entrega').classList.remove('hidden');
-        document.getElementById('detalhe-info').innerText = `Entregando Encomenda para o Apto ${item.Apartamento}`;
+        document.getElementById('detalhe-info').innerText = `Entregando Apto ${item.Apartamento}`;
     }
 
     window.concluirEntrega = async function() {
         const receptor = document.getElementById('nome-receptor').value;
         if(!receptor) return alert("Quem está recebendo?");
-
         const { error } = await supabase.from('Encomendas').update({ Status: 'entregue' }).eq('id', entregaAtual.id);
-        
         if(!error) {
             gerarPDF(receptor);
-            dispararWhatsApp(receptor);
-            alert("✅ Entrega finalizada!");
-            location.reload();
+            enviarZap(receptor);
+            alert("Concluído!"); location.reload();
         }
     }
 
-    function dispararWhatsApp(receptor) {
-        // Busca o WhatsApp na coluna 'Status' da tabela 'Moradores'
+    function enviarZap(receptor) {
         supabase.from('Moradores').select('Status').eq('Apartamento', entregaAtual.Apartamento).maybeSingle().then(({data}) => {
             if(data && data.Status) {
-                const msg = window.encodeURIComponent(`🏢 *PORTARIA REMBRANDT*\nSua encomenda (${entregaAtual.Descrição}) foi entregue agora para: *${receptor}*.`);
-                window.open(`https://api.whatsapp.com/send?phone=55${data.Status.replace(/\D/g, '')}&text=${msg}`, '_blank');
+                const tel = data.Status.replace(/\D/g, '');
+                const msg = window.encodeURIComponent(`🏢 *PORTARIA REMBRANDT*\nSua encomenda (${entregaAtual.Descrição}) foi entregue para: *${receptor}*.`);
+                window.open(`https://api.whatsapp.com/send?phone=55${tel}&text=${msg}`, '_blank');
             }
         });
     }
@@ -178,15 +183,13 @@
     function gerarPDF(receptor) {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
-        doc.text("COMPROVANTE DE ENTREGA - REMBRANDT", 20, 20);
+        doc.text("COMPROVANTE REMBRANDT", 20, 20);
         doc.text(`Apto: ${entregaAtual.Apartamento}`, 20, 40);
-        doc.text(`Morador: ${entregaAtual.Morador}`, 20, 50);
-        doc.text(`Recebido por: ${receptor}`, 20, 60);
-        doc.text(`Data: ${new Date().toLocaleString()}`, 20, 70);
-        if(fotoBase64) doc.addImage(fotoBase64, 'JPEG', 20, 80, 50, 40);
-        doc.text("Assinatura:", 20, 130);
-        doc.addImage(canvas.toDataURL(), 'PNG', 20, 135, 70, 25);
-        doc.save(`Entrega_Apto_${entregaAtual.Apartamento}.pdf`);
+        doc.text(`Recebido por: ${receptor}`, 20, 50);
+        if(fotoBase64) doc.addImage(fotoBase64, 'JPEG', 20, 60, 50, 40);
+        doc.text("Assinatura:", 20, 110);
+        doc.addImage(canvas.toDataURL(), 'PNG', 20, 115, 70, 25);
+        doc.save(`Recibo_Apto_${entregaAtual.Apartamento}.pdf`);
     }
 
     function configurarCanvas() {
@@ -201,6 +204,12 @@
         canvas.onmousedown = canvas.ontouchstart = (e) => { desenhando = true; const p = pos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); e.preventDefault(); };
         canvas.onmousemove = canvas.ontouchmove = (e) => { if(!desenhando) return; const p = pos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); e.preventDefault(); };
         canvas.onmouseup = canvas.ontouchend = () => desenhando = false;
+    }
+
+    window.verificarMorador = async function() {
+        const apto = document.getElementById('apt-select').value;
+        const { data } = await supabase.from('Moradores').select('*').eq('Apartamento', apto).maybeSingle();
+        moradorAtual = data;
     }
 
     window.abrirGestao = () => { document.getElementById('tela-registro').classList.add('hidden'); document.getElementById('tela-moradores').classList.remove('hidden'); }
