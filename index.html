@@ -212,7 +212,14 @@
             y += 45;
         }
         doc.addImage(canvas.toDataURL(), 'PNG', 20, y + 10, 70, 25);
-        doc.save(`Recibo_Apto_${entregaAtual.Apartamento}.pdf`);
+        
+        // MUDANÇA AQUI: Nome do arquivo dinâmico com Apto, Data e Hora
+        const agoraParaNome = new Date();
+        const dataNome = agoraParaNome.toLocaleDateString('pt-BR').replace(/\//g, '-');
+        const horaNome = agoraParaNome.getHours() + "h" + agoraParaNome.getMinutes();
+        const nomeArquivo = `Recibo_Apto_${entregaAtual.Apartamento}_${dataNome}_${horaNome}.pdf`;
+        
+        doc.save(nomeArquivo);
         localStorage.removeItem('fotos_' + entregaAtual.Apartamento);
 
         if(moradorAtual?.Status) {
