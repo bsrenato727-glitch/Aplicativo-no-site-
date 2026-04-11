@@ -26,61 +26,79 @@
         #signature-pad { border: 2px solid #333; background: #fff; width: 100%; height: 200px; border-radius: 8px; touch-action: none; margin-top: 10px; }
         .lista-moradores-scroll { max-height: 250px; overflow-y: auto; margin-top: 15px; border: 1px solid #ddd; padding: 5px; border-radius: 8px; background: #fafafa; }
         .morador-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #eee; }
+
+        /* ESTILO DA TELA DE LOGIN */
+        #login-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg); z-index: 10000; display: flex; align-items: center; justify-content: center; }
+        .login-card { width: 90%; max-width: 350px; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); text-align: center; }
+        .login-card h2 { color: var(--primary); margin-bottom: 20px; }
+        .login-card input { margin-bottom: 15px; }
     </style>
 </head>
 <body>
 
-<header>🏢 PORTARIA REMBRANDT</header>
+<div id="login-overlay">
+    <div class="login-card">
+        <h2>🔒 Acesso Restrito</h2>
+        <input type="email" id="log-email" placeholder="Seu e-mail">
+        <input type="password" id="log-pass" placeholder="Sua senha">
+        <button class="btn-success" id="btn-entrar">ENTRAR NO SISTEMA</button>
+        <p id="msg-erro" style="color:red; font-size: 14px; margin-top: 10px; display: none;">Acesso Negado!</p>
+    </div>
+</div>
 
-<div class="container">
-    <div id="tela-registro" class="card">
-        <h3>📥 Registrar Encomenda</h3>
-        <select id="apt-select" onchange="window.verificarMorador()"></select>
-        
-        <div style="background: #f9f9f9; padding: 10px; border-radius: 8px; margin-top: 10px; border: 1px solid #eee;">
-            <input type="text" id="protocolo-input" placeholder="Protocolo/Código">
-            <button class="btn-outline" onclick="window.abrirScanner()">📷 SCANNER</button>
-            <div id="reader"></div>
-            <input type="text" id="desc-input" placeholder="O que chegou?">
-            <button class="btn-outline" style="background:var(--blue); color:white; border:none;" onclick="window.incluirNaLista()">➕ ADICIONAR ITEM</button>
+<div id="app-content" class="hidden">
+    <header>🏢 PORTARIA REMBRANDT</header>
+
+    <div class="container">
+        <div id="tela-registro" class="card">
+            <h3>📥 Registrar Encomenda</h3>
+            <select id="apt-select" onchange="window.verificarMorador()"></select>
+            
+            <div style="background: #f9f9f9; padding: 10px; border-radius: 8px; margin-top: 10px; border: 1px solid #eee;">
+                <input type="text" id="protocolo-input" placeholder="Protocolo/Código">
+                <button class="btn-outline" onclick="window.abrirScanner()">📷 SCANNER</button>
+                <div id="reader"></div>
+                <input type="text" id="desc-input" placeholder="O que chegou?">
+                <button class="btn-outline" style="background:var(--blue); color:white; border:none;" onclick="window.incluirNaLista()">➕ ADICIONAR ITEM</button>
+            </div>
+            <div id="lista-temp"></div>
+
+            <label style="display:block; margin-top:20px; font-weight:bold;">📸 Fotos das Encomendas:</label>
+            <input type="file" id="foto-input" accept="image/*" capture="camera" onchange="window.processarFoto(this)">
+            <div id="galeria" class="galeria-fotos"></div>
+
+            <button class="btn-success" id="btn-salvar-geral" onclick="window.registrarEntrada()" style="margin-top:25px; display:none;">SALVAR E AVISAR WHATSAPP</button>
+            <button class="btn-outline" onclick="window.abrirGestao()" style="margin-top:40px; border-style: dashed; color: #555;">⚙️ GESTÃO DE MORADORES</button>
         </div>
-        <div id="lista-temp"></div>
 
-        <label style="display:block; margin-top:20px; font-weight:bold;">📸 Fotos das Encomendas:</label>
-        <input type="file" id="foto-input" accept="image/*" capture="camera" onchange="window.processarFoto(this)">
-        <div id="galeria" class="galeria-fotos"></div>
-
-        <button class="btn-success" id="btn-salvar-geral" onclick="window.registrarEntrada()" style="margin-top:25px; display:none;">SALVAR E AVISAR WHATSAPP</button>
-        <button class="btn-outline" onclick="window.abrirGestao()" style="margin-top:40px; border-style: dashed; color: #555;">⚙️ GESTÃO DE MORADORES</button>
-    </div>
-
-    <div id="tela-cadastro" class="card hidden">
-        <h3>👥 Gerenciar Moradores</h3>
-        <div style="background: #eef1f5; padding: 12px; border-radius: 8px;">
-            <input type="number" id="cad-apto" placeholder="Apto">
-            <input type="text" id="cad-nome" placeholder="Nome">
-            <input type="text" id="cad-whats" placeholder="WhatsApp">
-            <button class="btn-success" onclick="window.salvarMorador()">CADASTRAR</button>
+        <div id="tela-cadastro" class="card hidden">
+            <h3>👥 Gerenciar Moradores</h3>
+            <div style="background: #eef1f5; padding: 12px; border-radius: 8px;">
+                <input type="number" id="cad-apto" placeholder="Apto">
+                <input type="text" id="cad-nome" placeholder="Nome">
+                <input type="text" id="cad-whats" placeholder="WhatsApp">
+                <button class="btn-success" onclick="window.salvarMorador()">CADASTRAR</button>
+            </div>
+            <div id="lista-contatos-excluir" class="lista-moradores-scroll"></div>
+            <button class="btn-outline" onclick="window.fecharGestao()">VOLTAR</button>
         </div>
-        <div id="lista-contatos-excluir" class="lista-moradores-scroll"></div>
-        <button class="btn-outline" onclick="window.fecharGestao()">VOLTAR</button>
-    </div>
 
-    <div id="tela-entrega" class="card hidden">
-        <h3>📤 Retirada de Encomenda</h3>
-        <div id="detalhes-entrega-texto" style="margin-bottom: 15px; font-size: 0.9rem;"></div>
-        <input type="text" id="nome-receptor" placeholder="Quem está retirando?">
-        <label style="display:block; margin-top:10px;">Assinatura:</label>
-        <canvas id="signature-pad"></canvas>
-        <button class="btn-danger" onclick="window.limparAssinatura()">🧹 LIMPAR ASSINATURA</button>
-        
-        <button class="btn-success" onclick="window.finalizarEntrega()" style="margin-top:25px;">CONCLUIR E GERAR RECIBO</button>
-        <button class="btn-outline" onclick="location.reload()">CANCELAR</button>
-    </div>
+        <div id="tela-entrega" class="card hidden">
+            <h3>📤 Retirada de Encomenda</h3>
+            <div id="detalhes-entrega-texto" style="margin-bottom: 15px; font-size: 0.9rem;"></div>
+            <input type="text" id="nome-receptor" placeholder="Quem está retirando?">
+            <label style="display:block; margin-top:10px;">Assinatura:</label>
+            <canvas id="signature-pad"></canvas>
+            <button class="btn-danger" onclick="window.limparAssinatura()">🧹 LIMPAR ASSINATURA</button>
+            
+            <button class="btn-success" onclick="window.finalizarEntrega()" style="margin-top:25px;">CONCLUIR E GERAR RECIBO</button>
+            <button class="btn-outline" onclick="location.reload()">CANCELAR</button>
+        </div>
 
-    <div id="lista-aguardando">
-        <h3>📦 Encomendas na Portaria</h3>
-        <div id="itens-lista"></div>
+        <div id="lista-aguardando">
+            <h3>📦 Encomendas na Portaria</h3>
+            <div id="itens-lista"></div>
+        </div>
     </div>
 </div>
 
@@ -90,6 +108,35 @@
 
     let moradorAtual = null, entregaAtual = null, listaRascunho = [], listaFotos = [];
     let canvas, ctx, desenhando = false;
+
+    // --- LÓGICA DE LOGIN ---
+    document.getElementById('btn-entrar').onclick = async () => {
+        const email = document.getElementById('log-email').value;
+        const password = document.getElementById('log-pass').value;
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+        if (error) {
+            document.getElementById('msg-erro').style.display = 'block';
+        } else {
+            liberarAcesso();
+        }
+    };
+
+    async function verificarSessao() {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) liberarAcesso();
+    }
+
+    function liberarAcesso() {
+        document.getElementById('login-overlay').classList.add('hidden');
+        document.getElementById('app-content').classList.remove('hidden');
+        carregarTudo();
+    }
+
+    // Mantendo sua função original de carregar tudo
+    window.onload = verificarSessao;
+
+    // --- RESTANTE DO SEU CÓDIGO ORIGINAL (SEM ALTERAÇÕES) ---
 
     function tocarBipSupermercado() {
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -104,31 +151,35 @@
         setTimeout(() => oscillator.stop(), 120);
     }
 
-    window.onload = carregarTudo;
-
     async function carregarTudo() {
         const { data: moras } = await supabase.from('Moradores').select('*').order('Apartamento');
         const sel = document.getElementById('apt-select');
-        sel.innerHTML = '<option value="">Selecione o Apto...</option>';
-        if(moras) moras.forEach(m => sel.innerHTML += `<option value="${m.Apartamento}">Apto ${m.Apartamento} - ${m.Morador}</option>`);
+        if(sel) {
+            sel.innerHTML = '<option value="">Selecione o Apto...</option>';
+            if(moras) moras.forEach(m => sel.innerHTML += `<option value="${m.Apartamento}">Apto ${m.Apartamento} - ${m.Morador}</option>`);
+        }
 
         const listaExcluir = document.getElementById('lista-contatos-excluir');
-        listaExcluir.innerHTML = moras ? moras.map(m => `
-            <div class="morador-item">
-                <span><b>${m.Apartamento}</b> - ${m.Morador}</span>
-                <button onclick="window.excluirMorador(${m.id})" style="width:auto; background:red; color:white; border:none; padding:5px 10px; border-radius:5px;">🗑️</button>
-            </div>
-        `).join("") : "";
+        if(listaExcluir) {
+            listaExcluir.innerHTML = moras ? moras.map(m => `
+                <div class="morador-item">
+                    <span><b>${m.Apartamento}</b> - ${m.Morador}</span>
+                    <button onclick="window.excluirMorador(${m.id})" style="width:auto; background:red; color:white; border:none; padding:5px 10px; border-radius:5px;">🗑️</button>
+                </div>
+            `).join("") : "";
+        }
 
         const { data: encs } = await supabase.from('Encomendas').select('*').eq('Status', 'pendente').order('created_at', {ascending: false});
         const listaEnc = document.getElementById('itens-lista');
-        listaEnc.innerHTML = "";
-        if(encs) encs.forEach(i => {
-            listaEnc.innerHTML += `<div class="card" style="display:flex; justify-content:space-between; align-items:center; border-left:6px solid var(--primary);">
-                <span><b>Apto ${i.Apartamento}</b><br><small>${i.Descrição.split(' | ').join(', ')}</small></span>
-                <button onclick='window.abrirEntrega(${JSON.stringify(i)})' style="width:auto; padding:8px 15px; background:var(--primary); color:white; border:none; border-radius:5px;">ENTREGAR</button>
-            </div>`;
-        });
+        if(listaEnc) {
+            listaEnc.innerHTML = "";
+            if(encs) encs.forEach(i => {
+                listaEnc.innerHTML += `<div class="card" style="display:flex; justify-content:space-between; align-items:center; border-left:6px solid var(--primary);">
+                    <span><b>Apto ${i.Apartamento}</b><br><small>${i.Descrição.split(' | ').join(', ')}</small></span>
+                    <button onclick='window.abrirEntrega(${JSON.stringify(i)})' style="width:auto; padding:8px 15px; background:var(--primary); color:white; border:none; border-radius:5px;">ENTREGAR</button>
+                </div>`;
+            });
+        }
     }
 
     window.abrirScanner = () => {
@@ -213,7 +264,6 @@
         }
         doc.addImage(canvas.toDataURL(), 'PNG', 20, y + 10, 70, 25);
         
-        // MUDANÇA AQUI: Nome do arquivo dinâmico com Apto, Data e Hora
         const agoraParaNome = new Date();
         const dataNome = agoraParaNome.toLocaleDateString('pt-BR').replace(/\//g, '-');
         const horaNome = agoraParaNome.getHours() + "h" + agoraParaNome.getMinutes();
@@ -234,7 +284,6 @@
         location.reload();
     };
 
-    // --- AUXILIARES ---
     window.processarFoto = (input) => {
         if (input.files && input.files[0]) {
             const reader = new FileReader();
