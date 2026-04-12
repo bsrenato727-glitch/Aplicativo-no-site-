@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>PORTARIA REMBRANDT - V5.3</title>
+    <title>PORTARIA REMBRANDT - V5.4</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
@@ -123,20 +123,19 @@
     let moradorAtual = null, entregaAtual = null, listaRascunho = [], listaFotos = [], scannerObj = null;
     let canvas, ctx, desenhando = false;
 
-    // --- BIP ---
     function tocarBip() {
         try {
             const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
-            osc.type = 'sine'; osc.frequency.setValueAtTime(1200, audioCtx.currentTime);
+            osc.type = 'sine'; osc.frequency.setValueAtTime(1000, audioCtx.currentTime);
             gain.gain.setValueAtTime(1, audioCtx.currentTime);
             osc.connect(gain); gain.connect(audioCtx.destination);
-            osc.start(); setTimeout(() => { osc.stop(); audioCtx.close(); }, 200);
+            osc.start(); setTimeout(() => { osc.stop(); audioCtx.close(); }, 150);
         } catch(e) {}
     }
 
-    // LOGIN
+    // LOGIN E SESSÃO
     document.getElementById('btn-entrar').onclick = async () => {
         const { error } = await supabase.auth.signInWithPassword({ 
             email: document.getElementById('log-email').value, 
@@ -176,12 +175,11 @@
         }
     }
 
-    // --- SCANNER CORRIGIDO (V5.3) ---
+    // --- FUNÇÃO DO SCANNER COM FORÇA BRUTA (V5.4) ---
     window.abrirScanner = async () => {
         const readerDiv = document.getElementById('reader');
         const btnScan = document.getElementById('btn-scan');
 
-        // Se já estiver aberto, fecha
         if (scannerObj) {
             try { await scannerObj.stop(); } catch(e) {}
             scannerObj = null;
@@ -193,66 +191,42 @@
         readerDiv.style.display = 'block';
         btnScan.innerText = "🛑 PARAR";
 
-        // Cria a instância com suporte a múltiplos formatos
         scannerObj = new Html5QrCode("reader");
         
         const config = { 
             fps: 15, 
-            qrbox: { width: 280, height: 180 },
+            qrbox: { width: 250, height: 250 },
+            // Tenta forçar a resolução padrão para evitar tela preta
             videoConstraints: {
-                facingMode: "environment",
-                width: { ideal: 1280 },
-                height: { ideal: 720 }
+                facingMode: { exact: "environment" },
+                width: { min: 640, ideal: 1280 },
+                height: { min: 480, ideal: 720 }
             }
         };
 
         try {
-            // Solicita permissão e inicia
             await scannerObj.start({ facingMode: "environment" }, config, (text) => {
                 tocarBip();
                 document.getElementById('protocolo-input').value = text;
-                window.abrirScanner(); // Fecha após ler
+                window.abrirScanner(); 
             });
         } catch (err) {
-            console.error(err);
-            alert("Não foi possível aceder à câmara. Verifique se deu permissão no navegador.");
-            readerDiv.style.display = 'none';
-            btnScan.innerText = "📷 ABRIR SCANNER";
-            scannerObj = null;
+            console.warn("Falha na câmera traseira exata, tentando modo flexível...", err);
+            // Se falhar o 'exact', tenta o modo normal que o Android aceita melhor
+            try {
+                await scannerObj.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, (text) => {
+                    tocarBip();
+                    document.getElementById('protocolo-input').value = text;
+                    window.abrirScanner();
+                });
+            } catch (err2) {
+                alert("Erro: Certifique-se de usar o CHROME e PERMITIR a câmera.");
+                window.abrirScanner();
+            }
         }
     };
 
-    // --- GESTÃO ---
-    window.abrirGestao = async () => {
-        document.getElementById('tela-registro').classList.add('hidden');
-        document.getElementById('lista-aguardando').classList.add('hidden');
-        document.getElementById('tela-gestao').classList.remove('hidden');
-        const { data } = await supabase.from('Moradores').select('*').order('Apartamento');
-        document.getElementById('lista-moradores-gestao').innerHTML = data?.map(m => `
-            <div class="morador-item">
-                <span><b>${m.Apartamento}</b> - ${m.Morador}</span>
-                <button class="btn-danger" style="width:auto; padding:5px 10px;" onclick="window.delMorador('${m.id}')">X</button>
-            </div>
-        `).join("") || "Vazio.";
-    };
-
-    window.addMorador = async () => {
-        const apto = document.getElementById('g-apto').value;
-        const nome = document.getElementById('g-nome').value;
-        const tel = document.getElementById('g-tel').value;
-        if(!apto || !nome) return alert("Erro nos campos");
-        await supabase.from('Moradores').insert([{ Apartamento: apto, Morador: nome, Status: tel }]);
-        window.abrirGestao();
-    };
-
-    window.delMorador = async (id) => {
-        if(confirm("Remover?")) {
-            await supabase.from('Moradores').delete().eq('id', id);
-            window.abrirGestao();
-        }
-    };
-
-    // --- REGISTO E FOTOS ---
+    // --- STORAGE E REGISTRO ---
     async function uploadParaStorage(base64, nome) {
         const blob = await fetch(base64).then(res => res.blob());
         const { data, error } = await supabase.storage.from('fotos_encomendas').upload(nome, blob, { upsert: true });
@@ -262,12 +236,12 @@
 
     window.registrarEntrada = async () => {
         const apto = document.getElementById('apt-select').value;
-        if(!apto) return alert("Selecione o apto");
+        if(!apto) return alert("Selecione o apto!");
         document.getElementById('loader').classList.remove('hidden');
         try {
             let links = [];
             for(let i=0; i<listaFotos.length; i++) {
-                const url = await uploadParaStorage(listaFotos[i], `foto_${Date.now()}_${i}.jpg`);
+                const url = await uploadParaStorage(listaFotos[i], `enc_${Date.now()}_${i}.jpg`);
                 links.push(url);
             }
             const descFinal = listaRascunho.map(i => `${i.desc} (Prot: ${i.prot})`).join(' | ');
@@ -278,7 +252,31 @@
             if(tel) {
                 window.location.href = `https://api.whatsapp.com/send?phone=55${tel}&text=🏢 *PORTARIA REMBRANDT*%0A%0A📦 *Encomenda Disponível!*%0AApto: *${apto}*%0AItens: ${descFinal.replace(/\|/g, '%0A•')}`;
             } else { location.reload(); }
-        } catch (e) { alert(e.message); document.getElementById('loader').classList.add('hidden'); }
+        } catch (e) { alert("Erro Supabase: " + e.message); document.getElementById('loader').classList.add('hidden'); }
+    };
+
+    // --- OUTRAS FUNÇÕES (GESTÃO, HISTÓRICO, ETC) ---
+    window.abrirGestao = async () => {
+        document.getElementById('tela-registro').classList.add('hidden');
+        document.getElementById('lista-aguardando').classList.add('hidden');
+        document.getElementById('tela-gestao').classList.remove('hidden');
+        const { data } = await supabase.from('Moradores').select('*').order('Apartamento');
+        document.getElementById('lista-moradores-gestao').innerHTML = data?.map(m => `
+            <div class="morador-item"><span><b>${m.Apartamento}</b> - ${m.Morador}</span><button class="btn-danger" style="width:auto; padding:5px 10px;" onclick="window.delMorador('${m.id}')">X</button></div>
+        `).join("") || "Nenhum cadastrado.";
+    };
+
+    window.addMorador = async () => {
+        const apto = document.getElementById('g-apto').value;
+        const nome = document.getElementById('g-nome').value;
+        const tel = document.getElementById('g-tel').value;
+        if(!apto || !nome) return alert("Preencha os campos!");
+        await supabase.from('Moradores').insert([{ Apartamento: apto, Morador: nome, Status: tel }]);
+        window.abrirGestao();
+    };
+
+    window.delMorador = async (id) => {
+        if(confirm("Apagar morador?")) { await supabase.from('Moradores').delete().eq('id', id); window.abrirGestao(); }
     };
 
     window.abrirHistorico = async () => {
@@ -287,12 +285,8 @@
         document.getElementById('tela-historico').classList.remove('hidden');
         const { data } = await supabase.from('Encomendas').select('*').eq('Status', 'entregue').order('updated_at', { ascending: false }).limit(50);
         document.getElementById('lista-historico-conteudo').innerHTML = data?.map(h => `
-            <div class="hist-item">
-                <div style="display:flex; justify-content:space-between;"><b>Apto ${h.Apartamento}</b> <span class="badge-entregue">ENTREGUE</span></div>
-                <div style="color:#666; margin:4px 0;">${h.Descrição}</div>
-                <div style="font-size:10px; color:#999;">📅 ${new Date(h.updated_at).toLocaleString('pt-BR')}</div>
-            </div>
-        `).join("") || "Vazio.";
+            <div class="hist-item"><b>Apto ${h.Apartamento}</b> <span class="badge-entregue">ENTREGUE</span><br><small>${h.Descrição}</small></div>
+        `).join("") || "Sem histórico.";
     };
 
     window.abrirEntrega = async (item) => {
@@ -307,12 +301,12 @@
     };
 
     window.finalizarEntrega = async () => {
-        const rec = document.getElementById('nome-receptor').value;
-        if(!rec) return alert("Quem retirou?");
+        const receptor = document.getElementById('nome-receptor').value;
+        if(!receptor) return alert("Quem retirou?");
         await supabase.from('Encomendas').update({ Status: 'entregue', updated_at: new Date().toISOString() }).eq('id', entregaAtual.id);
         const tel = moradorAtual?.Status?.replace(/\D/g, '');
         if(tel) {
-            window.location.href = `https://api.whatsapp.com/send?phone=55${tel}&text=🏢 *PORTARIA REMBRANDT*%0A%0A✅ *Retirada Confirmada!*%0AApto: *${entregaAtual.Apartamento}*%0ARecebido por: *${rec}*`;
+            window.location.href = `https://api.whatsapp.com/send?phone=55${tel}&text=🏢 *PORTARIA REMBRANDT*%0A%0A✅ *Retirada Confirmada!*%0AApto: *${entregaAtual.Apartamento}*%0ARecebido por: *${receptor}*`;
         } else { location.reload(); }
     };
 
@@ -325,8 +319,8 @@
     };
 
     window.processarFoto = (input) => {
-        const fr = new FileReader();
-        fr.onload = (e) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
             const img = new Image();
             img.onload = () => {
                 const cv = document.createElement('canvas');
@@ -337,7 +331,7 @@
             };
             img.src = e.target.result;
         };
-        fr.readAsDataURL(input.files[0]);
+        reader.readAsDataURL(input.files[0]);
     };
 
     function renderGaleria() {
