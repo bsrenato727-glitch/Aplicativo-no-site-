@@ -226,7 +226,11 @@
         setTimeout(iniciarAssinatura, 300);
     };
 
-    window.limparAssinatura = () => { ctx.clearRect(0, 0, canvas.width, canvas.height); };
+    window.limparAssinatura = () => { 
+        if (ctx && canvas) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height); 
+        }
+    };
 
     window.finalizarEntrega = async () => {
         const receptor = document.getElementById('nome-receptor').value;
@@ -257,12 +261,20 @@
 
         await supabase.from('Encomendas').update({ Status: 'entregue' }).eq('id', entregaAtual.id);
 
+        // --- ATUALIZAÇÃO: LIMPEZA DOS CAMPOS ---
+        document.getElementById('nome-receptor').value = "";
+        window.limparAssinatura();
+
         if(moradorAtual?.Status) {
             const tel = moradorAtual.Status.replace(/\D/g, '');
             let itensRetirados = "";
             entregaAtual.Descrição.split(' | ').forEach(i => itensRetirados += `• ${i}%0A`);
             const msgR = `🏢 *PORTARIA REMBRANDT*%0A%0A✅ *Retirada Confirmada!*%0AApartamento: *${entregaAtual.Apartamento}*%0AQuem retirou: *${receptor}*%0AData: ${dataHora.split(' ')[0]}%0AHorário: ${dataHora.split(' ')[1]}%0A%0A*Encomendas retiradas:*%0A${itensRetirados}`;
-            window.location.href = `https://api.whatsapp.com/send?phone=55${tel}&text=${msgR}`;
+            
+            // Pequeno delay para garantir que o navegador processe a limpeza visual antes de sair
+            setTimeout(() => {
+                window.location.href = `https://api.whatsapp.com/send?phone=55${tel}&text=${msgR}`;
+            }, 100);
         } else {
             location.reload();
         }
