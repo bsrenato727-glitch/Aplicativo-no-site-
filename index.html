@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>PORTARIA REMBRANDT - V5.1</title>
+    <title>PORTARIA REMBRANDT - V5.2</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
@@ -18,7 +18,7 @@
         .btn-danger { background: var(--red); color: white; border: none; margin-top: 5px; font-size: 14px; padding: 8px; }
         .item-temp { background: #ffffff; padding: 10px; margin-top: 8px; border-radius: 6px; font-size: 0.95rem; border: 1px solid #dae1e9; border-left: 5px solid var(--blue); }
         .hidden { display: none !important; }
-        #reader { width: 100%; border-radius: 8px; margin-top: 10px; display: none; background: #000; overflow: hidden; }
+        #reader { width: 100%; border-radius: 8px; margin-top: 10px; display: none; background: #000; overflow: hidden; border: 2px solid var(--primary); }
         .galeria-fotos { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
         .foto-container { position: relative; width: 80px; height: 80px; }
         .foto-mini { width: 100%; height: 100%; object-fit: cover; border-radius: 8px; border: 1px solid #ccc; }
@@ -29,6 +29,7 @@
         #login-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg); z-index: 10000; display: flex; align-items: center; justify-content: center; }
         .login-card { width: 90%; max-width: 350px; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); text-align: center; }
         .loading-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.8); z-index:9999; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+        .morador-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #eee; font-size: 14px; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
@@ -36,7 +37,7 @@
 
 <div id="loader" class="loading-overlay hidden">
     <div style="border: 4px solid #f3f3f3; border-top: 4px solid var(--primary); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite;"></div>
-    <p>Salvando na Nuvem...</p>
+    <p>Processando...</p>
 </div>
 
 <div id="login-overlay">
@@ -64,7 +65,7 @@
             
             <div style="background: #f9f9f9; padding: 10px; border-radius: 8px; margin-top: 10px; border: 1px solid #eee;">
                 <input type="text" id="protocolo-input" placeholder="Protocolo/Código">
-                <button class="btn-outline" onclick="window.abrirScanner()">📷 SCANNER</button>
+                <button class="btn-outline" id="btn-scan" onclick="window.abrirScanner()">📷 ABRIR SCANNER</button>
                 <div id="reader"></div>
                 <input type="text" id="desc-input" placeholder="O que chegou?">
                 <button class="btn-outline" style="background:var(--blue); color:white; border:none;" onclick="window.incluirNaLista()">➕ ADICIONAR ITEM</button>
@@ -76,6 +77,20 @@
             <div id="galeria" class="galeria-fotos"></div>
 
             <button class="btn-success" id="btn-salvar-geral" onclick="window.registrarEntrada()" style="margin-top:25px; display:none;">SALVAR E AVISAR WHATSAPP</button>
+            
+            <button class="btn-outline" onclick="window.abrirGestao()" style="margin-top:40px; border-style: dashed; color: #555;">⚙️ GESTÃO DE MORADORES</button>
+        </div>
+
+        <div id="tela-gestao" class="card hidden">
+            <h3>⚙️ Gestão de Moradores</h3>
+            <div style="background: #f0f0f0; padding: 10px; border-radius: 8px; margin-bottom: 15px;">
+                <input type="text" id="g-apto" placeholder="Apto">
+                <input type="text" id="g-nome" placeholder="Nome do Morador">
+                <input type="text" id="g-tel" placeholder="Telefone (DDD + Numero)">
+                <button class="btn-success" onclick="window.addMorador()">CADASTRAR MORADOR</button>
+            </div>
+            <div id="lista-moradores-gestao" style="max-height: 300px; overflow-y: auto;"></div>
+            <button class="btn-outline" onclick="window.location.reload()">VOLTAR</button>
         </div>
 
         <div id="tela-historico" class="card hidden">
@@ -105,8 +120,22 @@
     import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
     const supabase = createClient('https://fpfykmxwtmngxeyyljaz.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZwZnlrbXh3dG1uZ3hleXlsamF6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzODU5NjAsImV4cCI6MjA5MDk2MTk2MH0.yaFPUO_2phJwqma5VaHNfLqSqnuWqLZdxchL3YB6KSA');
 
-    let moradorAtual = null, entregaAtual = null, listaRascunho = [], listaFotos = [];
+    let moradorAtual = null, entregaAtual = null, listaRascunho = [], listaFotos = [], scannerObj = null;
     let canvas, ctx, desenhando = false;
+
+    // --- BIP DE SUPERMERCADO ALTO ---
+    function tocarBip() {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(1000, audioCtx.currentTime); 
+        gainNode.gain.setValueAtTime(1.0, audioCtx.currentTime); // Volume Máximo
+        oscillator.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+        oscillator.start();
+        setTimeout(() => oscillator.stop(), 150);
+    }
 
     // LOGIN
     document.getElementById('btn-entrar').onclick = async () => {
@@ -149,7 +178,60 @@
         }
     }
 
-    // UPLOAD PARA STORAGE
+    // --- SCANNER CORRIGIDO (QR + BARCODE) ---
+    window.abrirScanner = async () => {
+        const readerDiv = document.getElementById('reader');
+        const btnScan = document.getElementById('btn-scan');
+        if (scannerObj) {
+            await scannerObj.stop();
+            scannerObj = null;
+            readerDiv.style.display = 'none';
+            btnScan.innerText = "📷 ABRIR SCANNER";
+            return;
+        }
+        readerDiv.style.display = 'block';
+        btnScan.innerText = "🛑 PARAR SCANNER";
+        scannerObj = new Html5QrCode("reader");
+        const config = { fps: 15, qrbox: { width: 250, height: 150 } };
+        scannerObj.start({ facingMode: "environment" }, config, (decodedText) => {
+            tocarBip();
+            document.getElementById('protocolo-input').value = decodedText;
+            window.abrirScanner(); // Fecha após leitura
+        }).catch(err => { alert("Erro na câmera: " + err); });
+    };
+
+    // --- GESTÃO DE MORADORES (RESTAURADA) ---
+    window.abrirGestao = async () => {
+        document.getElementById('tela-registro').classList.add('hidden');
+        document.getElementById('lista-aguardando').classList.add('hidden');
+        document.getElementById('tela-gestao').classList.remove('hidden');
+        const { data } = await supabase.from('Moradores').select('*').order('Apartamento');
+        document.getElementById('lista-moradores-gestao').innerHTML = data?.map(m => `
+            <div class="morador-item">
+                <span><b>${m.Apartamento}</b> - ${m.Morador}</span>
+                <button class="btn-danger" style="width:auto; padding:5px 10px;" onclick="window.delMorador('${m.id}')">X</button>
+            </div>
+        `).join("") || "Nenhum cadastrado.";
+    };
+
+    window.addMorador = async () => {
+        const apto = document.getElementById('g-apto').value;
+        const nome = document.getElementById('g-nome').value;
+        const tel = document.getElementById('g-tel').value;
+        if(!apto || !nome) return alert("Preencha Apto e Nome!");
+        await supabase.from('Moradores').insert([{ Apartamento: apto, Morador: nome, Status: tel }]);
+        alert("Morador cadastrado!");
+        window.abrirGestao();
+    };
+
+    window.delMorador = async (id) => {
+        if(confirm("Deseja apagar este morador?")) {
+            await supabase.from('Moradores').delete().eq('id', id);
+            window.abrirGestao();
+        }
+    };
+
+    // UPLOAD E REGISTRO
     async function uploadParaStorage(base64, nome) {
         const blob = await fetch(base64).then(res => res.blob());
         const { data, error } = await supabase.storage.from('fotos_encomendas').upload(nome, blob, { upsert: true });
@@ -160,49 +242,28 @@
     window.registrarEntrada = async () => {
         const apto = document.getElementById('apt-select').value;
         if(!apto) return alert("Selecione o apartamento!");
-
         document.getElementById('loader').classList.remove('hidden');
-
         try {
             let linksFotos = [];
             for(let i=0; i<listaFotos.length; i++) {
-                const nomeImg = `encomenda_${apto}_${Date.now()}_${i}.jpg`;
-                const url = await uploadParaStorage(listaFotos[i], nomeImg);
+                const url = await uploadParaStorage(listaFotos[i], `enc_${apto}_${Date.now()}_${i}.jpg`);
                 linksFotos.push(url);
             }
-
             const descFinal = listaRascunho.map(i => `${i.desc} (Prot: ${i.prot})`).join(' | ');
             await supabase.from('Encomendas').insert([{ 
-                Apartamento: apto, 
-                Morador: moradorAtual?.Morador, 
-                Descrição: descFinal, 
-                Status: 'pendente',
-                Fotos: linksFotos 
+                Apartamento: apto, Morador: moradorAtual?.Morador, Descrição: descFinal, Status: 'pendente', Fotos: linksFotos 
             }]);
-
             const tel = moradorAtual?.Status?.replace(/\D/g, '');
-            
-            listaRascunho = []; listaFotos = [];
-            document.getElementById('lista-temp').innerHTML = "";
-            document.getElementById('galeria').innerHTML = "";
-            document.getElementById('loader').classList.add('hidden');
-            carregarTudo();
-
             if(tel) {
-                const msg = `🏢 *PORTARIA REMBRANDT*%0A%0A📦 *Encomenda Disponível!*%0AApto: *${apto}*%0AItens: ${descFinal.replace(/\|/g, '%0A•')}`;
-                window.location.href = `https://api.whatsapp.com/send?phone=55${tel}&text=${msg}`;
-            }
-        } catch (e) {
-            alert("Erro: " + e.message);
-            document.getElementById('loader').classList.add('hidden');
-        }
+                window.location.href = `https://api.whatsapp.com/send?phone=55${tel}&text=🏢 *PORTARIA REMBRANDT*%0A%0A📦 *Encomenda Disponível!*%0AApto: *${apto}*%0AItens: ${descFinal.replace(/\|/g, '%0A•')}`;
+            } else { location.reload(); }
+        } catch (e) { alert("Erro: " + e.message); document.getElementById('loader').classList.add('hidden'); }
     };
 
     window.abrirHistorico = async () => {
         document.getElementById('tela-registro').classList.add('hidden');
         document.getElementById('lista-aguardando').classList.add('hidden');
         document.getElementById('tela-historico').classList.remove('hidden');
-        
         const { data } = await supabase.from('Encomendas').select('*').eq('Status', 'entregue').order('updated_at', { ascending: false }).limit(50);
         document.getElementById('lista-historico-conteudo').innerHTML = data?.map(h => `
             <div class="hist-item">
@@ -227,28 +288,11 @@
     window.finalizarEntrega = async () => {
         const receptor = document.getElementById('nome-receptor').value;
         if(!receptor) return alert("Informe quem está retirando!");
-
         await supabase.from('Encomendas').update({ Status: 'entregue', updated_at: new Date().toISOString() }).eq('id', entregaAtual.id);
-        
-        document.getElementById('tela-entrega').classList.add('hidden');
-        document.getElementById('tela-registro').classList.remove('hidden');
-        document.getElementById('lista-aguardando').classList.remove('hidden');
-        carregarTudo();
-
-        if(moradorAtual?.Status) {
-            const tel = moradorAtual.Status.replace(/\D/g, '');
-            const msg = `🏢 *PORTARIA REMBRANDT*%0A%0A✅ *Retirada Confirmada!*%0AApto: *${entregaAtual.Apartamento}*%0ARecebido por: *${receptor}*`;
-            window.location.href = `https://api.whatsapp.com/send?phone=55${tel}&text=${msg}`;
-        }
-    };
-
-    window.abrirScanner = () => {
-        const r = document.getElementById('reader'); r.style.display = 'block';
-        const q = new Html5QrCode("reader");
-        q.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, (t) => {
-            document.getElementById('protocolo-input').value = t;
-            q.stop(); r.style.display = 'none';
-        });
+        const tel = moradorAtual?.Status?.replace(/\D/g, '');
+        if(tel) {
+            window.location.href = `https://api.whatsapp.com/send?phone=55${tel}&text=🏢 *PORTARIA REMBRANDT*%0A%0A✅ *Retirada Confirmada!*%0AApto: *${entregaAtual.Apartamento}*%0ARecebido por: *${receptor}*`;
+        } else { location.reload(); }
     };
 
     window.incluirNaLista = () => {
@@ -265,9 +309,8 @@
             const img = new Image();
             img.onload = () => {
                 const cv = document.createElement('canvas');
-                const ctxCv = cv.getContext('2d');
                 cv.width = 600; cv.height = (img.height / img.width) * 600;
-                ctxCv.drawImage(img, 0, 0, cv.width, cv.height);
+                cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
                 listaFotos.push(cv.toDataURL('image/jpeg', 0.7));
                 renderGaleria();
             };
