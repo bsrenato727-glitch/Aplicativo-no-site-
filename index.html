@@ -201,22 +201,19 @@
         
         if(!error) {
             localStorage.setItem('fotos_' + apto, JSON.stringify(listaFotos));
-            
-            // --- NOVA ATUALIZAÇÃO: LIMPAR TUDO ANTES DE IR PARA WHATSAPP ---
             const telFinal = moradorAtual?.Status ? moradorAtual.Status.replace(/\D/g, '') : null;
             let volumesMsg = "";
             listaRascunho.forEach((item, index) => {
                 volumesMsg += `*Volume ${index + 1}:*%0A${item.desc}%0AProtocolo: ${item.prot}%0A%0A`;
             });
 
-            // Reseta variáveis e interface
             listaRascunho = [];
             listaFotos = [];
             document.getElementById('lista-temp').innerHTML = "";
             document.getElementById('galeria').innerHTML = "";
             document.getElementById('apt-select').value = "";
             document.getElementById('btn-salvar-geral').style.display = 'none';
-            carregarTudo(); // Atualiza a lista de encomendas pendentes no fundo
+            carregarTudo();
 
             if(telFinal) {
                 const msg = `🏢 *PORTARIA REMBRANDT*%0A%0A📍 *Encomenda Chegou!*%0AApartamento: *${apto}*%0A%0A${volumesMsg}_Disponível na portaria._`;
@@ -224,7 +221,7 @@
                     window.location.href = `https://api.whatsapp.com/send?phone=55${telFinal}&text=${msg}`;
                 }, 200);
             } else {
-                alert("Encomenda registrada! (Morador sem WhatsApp cadastrado)");
+                alert("Gravado com sucesso!");
             }
         }
     };
@@ -275,9 +272,13 @@
 
         await supabase.from('Encomendas').update({ Status: 'entregue' }).eq('id', entregaAtual.id);
 
-        // Limpeza dos campos de retirada
+        // --- CORREÇÃO AQUI: RESET DA INTERFACE ANTES DE SAIR ---
         document.getElementById('nome-receptor').value = "";
         window.limparAssinatura();
+        document.getElementById('tela-entrega').classList.add('hidden');
+        document.getElementById('tela-registro').classList.remove('hidden');
+        document.getElementById('lista-aguardando').classList.remove('hidden');
+        carregarTudo();
 
         if(moradorAtual?.Status) {
             const tel = moradorAtual.Status.replace(/\D/g, '');
@@ -287,9 +288,9 @@
             
             setTimeout(() => {
                 window.location.href = `https://api.whatsapp.com/send?phone=55${tel}&text=${msgR}`;
-            }, 200);
+            }, 300);
         } else {
-            location.reload();
+            alert("Entrega finalizada!");
         }
     };
 
