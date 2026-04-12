@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>PORTARIA REMBRANDT - V4.9</title>
+    <title>PORTARIA REMBRANDT - V4.9 + ImgBB</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
@@ -104,6 +104,9 @@
     import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
     const supabase = createClient('https://fpfykmxwtmngxeyyljaz.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZwZnlrbXh3dG1uZ3hleXlsamF6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzODU5NjAsImV4cCI6MjA5MDk2MTk2MH0.yaFPUO_2phJwqma5VaHNfLqSqnuWqLZdxchL3YB6KSA');
 
+    // CONFIGURAÇÃO IMGBB
+    const IMGBB_KEY = 'c295ff836035b4b3053f316ee78a1656';
+
     let moradorAtual = null, entregaAtual = null, listaRascunho = [], listaFotos = [];
     let canvas, ctx, desenhando = false;
 
@@ -194,12 +197,42 @@
         document.getElementById('btn-salvar-geral').style.display = 'block';
     };
 
+    // FUNÇÃO PARA SUBIR PARA O IMGBB
+    async function subirParaImgBB(base64) {
+        const formData = new FormData();
+        formData.append('image', base64.split(',')[1]);
+        try {
+            const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_KEY}`, { method: 'POST', body: formData });
+            const json = await res.json();
+            return json.success ? json.data.url : null;
+        } catch { return null; }
+    }
+
     window.registrarEntrada = async () => {
+        const btn = document.getElementById('btn-salvar-geral');
+        btn.disabled = true; btn.innerText = "PROCESSANDO FOTOS...";
+        
         const apto = document.getElementById('apt-select').value;
         const descricaoFinal = listaRascunho.map(i => `${i.desc} (Prot: ${i.prot})`).join(' | ');
-        const { error } = await supabase.from('Encomendas').insert([{ Apartamento: apto, Morador: moradorAtual?.Morador, Descrição: descricaoFinal, Status: 'pendente' }]);
+
+        // Sobe cada foto para o ImgBB e pega os links
+        const linksFotos = [];
+        for(let f of listaFotos) {
+            const url = await subirParaImgBB(f);
+            if(url) linksFotos.push(url);
+        }
+        
+        // Salva tudo no Supabase (Links de fotos viram texto no campo fotos)
+        const { error } = await supabase.from('Encomendas').insert([{ 
+            Apartamento: apto, 
+            Morador: moradorAtual?.Morador, 
+            Descrição: descricaoFinal, 
+            Status: 'pendente',
+            fotos: JSON.stringify(linksFotos) // Salva os links como texto
+        }]);
         
         if(!error) {
+            // Salva também no localStorage para o recibo PDF
             localStorage.setItem('fotos_' + apto, JSON.stringify(listaFotos));
             if(moradorAtual?.Status) {
                 const tel = moradorAtual.Status.replace(/\D/g, '');
@@ -212,6 +245,9 @@
             } else {
                 location.reload();
             }
+        } else {
+            alert("Erro ao salvar no banco. Verifique a internet.");
+            btn.disabled = false; btn.innerText = "SALVAR E AVISAR WHATSAPP";
         }
     };
 
@@ -243,11 +279,15 @@
         doc.text(`Data/Hora: ${dataHora}`, 20, 49);
         let y = 60; doc.text("Volumes:", 20, y);
         entregaAtual.Descrição.split(' | ').forEach(linha => { y += 7; doc.text(`- ${linha}`, 25, y); });
+        
         if(fotosSalvas.length > 0) {
             y += 10; let x = 20;
-            fotosSalvas.slice(0, 4).forEach(img => { doc.addImage(img, 'JPEG', x, y, 40, 40); x += 45; });
+            fotosSalvas.slice(0, 4).forEach(img => { 
+                try { doc.addImage(img, 'JPEG', x, y, 40, 40); x += 45; } catch(e) { console.log(e); }
+            });
             y += 45;
         }
+        
         doc.addImage(canvas.toDataURL(), 'PNG', 20, y + 10, 70, 25);
         const agoraParaNome = new Date();
         const dataNome = agoraParaNome.toLocaleDateString('pt-BR').replace(/\//g, '-');
