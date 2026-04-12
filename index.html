@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>PORTARIA REMBRANDT - V5.2</title>
+    <title>PORTARIA REMBRANDT - V5.3</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
@@ -18,7 +18,7 @@
         .btn-danger { background: var(--red); color: white; border: none; margin-top: 5px; font-size: 14px; padding: 8px; }
         .item-temp { background: #ffffff; padding: 10px; margin-top: 8px; border-radius: 6px; font-size: 0.95rem; border: 1px solid #dae1e9; border-left: 5px solid var(--blue); }
         .hidden { display: none !important; }
-        #reader { width: 100%; border-radius: 8px; margin-top: 10px; display: none; background: #000; overflow: hidden; border: 2px solid var(--primary); }
+        #reader { width: 100%; border-radius: 8px; margin-top: 10px; display: none; background: #000; overflow: hidden; border: 2px solid var(--primary); min-height: 250px; }
         .galeria-fotos { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
         .foto-container { position: relative; width: 80px; height: 80px; }
         .foto-mini { width: 100%; height: 100%; object-fit: cover; border-radius: 8px; border: 1px solid #ccc; }
@@ -123,20 +123,17 @@
     let moradorAtual = null, entregaAtual = null, listaRascunho = [], listaFotos = [], scannerObj = null;
     let canvas, ctx, desenhando = false;
 
-    // --- BIP DE SUPERMERCADO ALTO ---
+    // --- BIP ---
     function tocarBip() {
         try {
             const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            const oscillator = audioCtx.createOscillator();
-            const gainNode = audioCtx.createGain();
-            oscillator.type = 'sine';
-            oscillator.frequency.setValueAtTime(1000, audioCtx.currentTime); 
-            gainNode.gain.setValueAtTime(1.0, audioCtx.currentTime); 
-            oscillator.connect(gainNode);
-            gainNode.connect(audioCtx.destination);
-            oscillator.start();
-            setTimeout(() => { oscillator.stop(); audioCtx.close(); }, 150);
-        } catch(e) { console.error("Erro áudio", e); }
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sine'; osc.frequency.setValueAtTime(1200, audioCtx.currentTime);
+            gain.gain.setValueAtTime(1, audioCtx.currentTime);
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(); setTimeout(() => { osc.stop(); audioCtx.close(); }, 200);
+        } catch(e) {}
     }
 
     // LOGIN
@@ -167,7 +164,6 @@
             sel.innerHTML = '<option value="">Selecione o Apto...</option>';
             moras?.forEach(m => sel.innerHTML += `<option value="${m.Apartamento}">Apto ${m.Apartamento} - ${m.Morador}</option>`);
         }
-        
         const { data: encs } = await supabase.from('Encomendas').select('*').eq('Status', 'pendente').order('created_at', {ascending: false});
         const listaEnc = document.getElementById('itens-lista');
         if(listaEnc) {
@@ -180,10 +176,12 @@
         }
     }
 
-    // --- SCANNER ULTRA CORRIGIDO (QR + BARRAS) ---
+    // --- SCANNER CORRIGIDO (V5.3) ---
     window.abrirScanner = async () => {
         const readerDiv = document.getElementById('reader');
         const btnScan = document.getElementById('btn-scan');
+
+        // Se já estiver aberto, fecha
         if (scannerObj) {
             try { await scannerObj.stop(); } catch(e) {}
             scannerObj = null;
@@ -191,26 +189,40 @@
             btnScan.innerText = "📷 ABRIR SCANNER";
             return;
         }
-        readerDiv.style.display = 'block';
-        btnScan.innerText = "🛑 PARAR SCANNER";
-        
-        scannerObj = new Html5QrCode("reader", { 
-            formatsToSupport: [ 
-                Html5QrCodeSupportedFormats.QR_CODE, Html5QrCodeSupportedFormats.EAN_13, 
-                Html5QrCodeSupportedFormats.EAN_8, Html5QrCodeSupportedFormats.CODE_128, 
-                Html5QrCodeSupportedFormats.UPC_A, Html5QrCodeSupportedFormats.ITF 
-            ] 
-        });
 
-        const config = { fps: 20, qrbox: { width: 280, height: 180 } };
-        scannerObj.start({ facingMode: "environment" }, config, (decodedText) => {
-            tocarBip();
-            document.getElementById('protocolo-input').value = decodedText;
-            window.abrirScanner(); 
-        }).catch(err => { alert("Erro câmera: " + err); window.abrirScanner(); });
+        readerDiv.style.display = 'block';
+        btnScan.innerText = "🛑 PARAR";
+
+        // Cria a instância com suporte a múltiplos formatos
+        scannerObj = new Html5QrCode("reader");
+        
+        const config = { 
+            fps: 15, 
+            qrbox: { width: 280, height: 180 },
+            videoConstraints: {
+                facingMode: "environment",
+                width: { ideal: 1280 },
+                height: { ideal: 720 }
+            }
+        };
+
+        try {
+            // Solicita permissão e inicia
+            await scannerObj.start({ facingMode: "environment" }, config, (text) => {
+                tocarBip();
+                document.getElementById('protocolo-input').value = text;
+                window.abrirScanner(); // Fecha após ler
+            });
+        } catch (err) {
+            console.error(err);
+            alert("Não foi possível aceder à câmara. Verifique se deu permissão no navegador.");
+            readerDiv.style.display = 'none';
+            btnScan.innerText = "📷 ABRIR SCANNER";
+            scannerObj = null;
+        }
     };
 
-    // --- GESTÃO DE MORADORES ---
+    // --- GESTÃO ---
     window.abrirGestao = async () => {
         document.getElementById('tela-registro').classList.add('hidden');
         document.getElementById('lista-aguardando').classList.add('hidden');
@@ -221,27 +233,26 @@
                 <span><b>${m.Apartamento}</b> - ${m.Morador}</span>
                 <button class="btn-danger" style="width:auto; padding:5px 10px;" onclick="window.delMorador('${m.id}')">X</button>
             </div>
-        `).join("") || "Nenhum cadastrado.";
+        `).join("") || "Vazio.";
     };
 
     window.addMorador = async () => {
         const apto = document.getElementById('g-apto').value;
         const nome = document.getElementById('g-nome').value;
         const tel = document.getElementById('g-tel').value;
-        if(!apto || !nome) return alert("Preencha Apto e Nome!");
+        if(!apto || !nome) return alert("Erro nos campos");
         await supabase.from('Moradores').insert([{ Apartamento: apto, Morador: nome, Status: tel }]);
-        alert("Cadastrado!");
         window.abrirGestao();
     };
 
     window.delMorador = async (id) => {
-        if(confirm("Apagar morador?")) {
+        if(confirm("Remover?")) {
             await supabase.from('Moradores').delete().eq('id', id);
             window.abrirGestao();
         }
     };
 
-    // --- STORAGE E REGISTRO ---
+    // --- REGISTO E FOTOS ---
     async function uploadParaStorage(base64, nome) {
         const blob = await fetch(base64).then(res => res.blob());
         const { data, error } = await supabase.storage.from('fotos_encomendas').upload(nome, blob, { upsert: true });
@@ -251,23 +262,23 @@
 
     window.registrarEntrada = async () => {
         const apto = document.getElementById('apt-select').value;
-        if(!apto) return alert("Selecione o apto!");
+        if(!apto) return alert("Selecione o apto");
         document.getElementById('loader').classList.remove('hidden');
         try {
-            let linksFotos = [];
+            let links = [];
             for(let i=0; i<listaFotos.length; i++) {
-                const url = await uploadParaStorage(listaFotos[i], `enc_${apto}_${Date.now()}_${i}.jpg`);
-                linksFotos.push(url);
+                const url = await uploadParaStorage(listaFotos[i], `foto_${Date.now()}_${i}.jpg`);
+                links.push(url);
             }
             const descFinal = listaRascunho.map(i => `${i.desc} (Prot: ${i.prot})`).join(' | ');
             await supabase.from('Encomendas').insert([{ 
-                Apartamento: apto, Morador: moradorAtual?.Morador, Descrição: descFinal, Status: 'pendente', Fotos: linksFotos 
+                Apartamento: apto, Morador: moradorAtual?.Morador, Descrição: descFinal, Status: 'pendente', Fotos: links 
             }]);
             const tel = moradorAtual?.Status?.replace(/\D/g, '');
             if(tel) {
                 window.location.href = `https://api.whatsapp.com/send?phone=55${tel}&text=🏢 *PORTARIA REMBRANDT*%0A%0A📦 *Encomenda Disponível!*%0AApto: *${apto}*%0AItens: ${descFinal.replace(/\|/g, '%0A•')}`;
             } else { location.reload(); }
-        } catch (e) { alert("Erro: " + e.message); document.getElementById('loader').classList.add('hidden'); }
+        } catch (e) { alert(e.message); document.getElementById('loader').classList.add('hidden'); }
     };
 
     window.abrirHistorico = async () => {
@@ -281,7 +292,7 @@
                 <div style="color:#666; margin:4px 0;">${h.Descrição}</div>
                 <div style="font-size:10px; color:#999;">📅 ${new Date(h.updated_at).toLocaleString('pt-BR')}</div>
             </div>
-        `).join("") || "Nenhum histórico.";
+        `).join("") || "Vazio.";
     };
 
     window.abrirEntrega = async (item) => {
@@ -296,12 +307,12 @@
     };
 
     window.finalizarEntrega = async () => {
-        const receptor = document.getElementById('nome-receptor').value;
-        if(!receptor) return alert("Quem retirou?");
+        const rec = document.getElementById('nome-receptor').value;
+        if(!rec) return alert("Quem retirou?");
         await supabase.from('Encomendas').update({ Status: 'entregue', updated_at: new Date().toISOString() }).eq('id', entregaAtual.id);
         const tel = moradorAtual?.Status?.replace(/\D/g, '');
         if(tel) {
-            window.location.href = `https://api.whatsapp.com/send?phone=55${tel}&text=🏢 *PORTARIA REMBRANDT*%0A%0A✅ *Retirada Confirmada!*%0AApto: *${entregaAtual.Apartamento}*%0ARecebido por: *${receptor}*`;
+            window.location.href = `https://api.whatsapp.com/send?phone=55${tel}&text=🏢 *PORTARIA REMBRANDT*%0A%0A✅ *Retirada Confirmada!*%0AApto: *${entregaAtual.Apartamento}*%0ARecebido por: *${rec}*`;
         } else { location.reload(); }
     };
 
@@ -314,8 +325,8 @@
     };
 
     window.processarFoto = (input) => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
+        const fr = new FileReader();
+        fr.onload = (e) => {
             const img = new Image();
             img.onload = () => {
                 const cv = document.createElement('canvas');
@@ -326,7 +337,7 @@
             };
             img.src = e.target.result;
         };
-        reader.readAsDataURL(input.files[0]);
+        fr.readAsDataURL(input.files[0]);
     };
 
     function renderGaleria() {
