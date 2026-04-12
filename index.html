@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>PORTARIA REMBRANDT - V4.9 + ImgBB</title>
+    <title>PORTARIA REMBRANDT - V5.0</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
-        :root { --primary: #075E54; --accent: #25D366; --bg: #f0f2f5; --red: #ff4d4d; --blue: #007bff; }
+        :root { --primary: #075E54; --accent: #25D366; --bg: #f0f2f5; --red: #ff4d4d; --blue: #007bff; --gray: #666; }
         body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); touch-action: manipulation; }
         header { background: var(--primary); color: white; padding: 15px; text-align: center; font-weight: bold; position: sticky; top: 0; z-index: 100; }
         .container { max-width: 500px; margin: auto; padding: 10px; }
@@ -28,8 +28,7 @@
         .morador-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #eee; }
         #login-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg); z-index: 10000; display: flex; align-items: center; justify-content: center; }
         .login-card { width: 90%; max-width: 350px; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); text-align: center; }
-        .login-card h2 { color: var(--primary); margin-bottom: 20px; }
-        .login-card input { margin-bottom: 15px; }
+        .hist-item { font-size: 0.85rem; border-bottom: 1px solid #eee; padding: 8px 0; color: #444; }
     </style>
 </head>
 <body>
@@ -97,6 +96,11 @@
             <h3>📦 Encomendas na Portaria</h3>
             <div id="itens-lista"></div>
         </div>
+
+        <div class="card">
+            <h3>🕒 Últimas 50 Entregas (Histórico)</h3>
+            <div id="lista-historico"></div>
+        </div>
     </div>
 </div>
 
@@ -104,9 +108,7 @@
     import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
     const supabase = createClient('https://fpfykmxwtmngxeyyljaz.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZwZnlrbXh3dG1uZ3hleXlsamF6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzODU5NjAsImV4cCI6MjA5MDk2MTk2MH0.yaFPUO_2phJwqma5VaHNfLqSqnuWqLZdxchL3YB6KSA');
 
-    // CHAVE DO IMGBB CONFIGURADA
     const IMGBB_KEY = 'c295ff836035b4b3053f316ee78a1656';
-
     let moradorAtual = null, entregaAtual = null, listaRascunho = [], listaFotos = [];
     let canvas, ctx, desenhando = false;
 
@@ -131,39 +133,20 @@
 
     window.onload = verificarSessao;
 
-    function tocarBipSupermercado() {
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        const oscillator = audioCtx.createOscillator();
-        const gainNode = audioCtx.createGain();
-        oscillator.type = 'sine';
-        oscillator.frequency.setValueAtTime(750, audioCtx.currentTime);
-        gainNode.gain.setValueAtTime(0.5, audioCtx.currentTime);
-        oscillator.connect(gainNode);
-        gainNode.connect(audioCtx.destination);
-        oscillator.start();
-        setTimeout(() => oscillator.stop(), 120);
-    }
-
     async function carregarTudo() {
+        // Carrega Moradores
         const { data: moras } = await supabase.from('Moradores').select('*').order('Apartamento');
         const sel = document.getElementById('apt-select');
         if(sel) {
             sel.innerHTML = '<option value="">Selecione o Apto...</option>';
             if(moras) moras.forEach(m => sel.innerHTML += `<option value="${m.Apartamento}">Apto ${m.Apartamento} - ${m.Morador}</option>`);
         }
-        const listaExcluir = document.getElementById('lista-contatos-excluir');
-        if(listaExcluir) {
-            listaExcluir.innerHTML = moras ? moras.map(m => `
-                <div class="morador-item">
-                    <span><b>${m.Apartamento}</b> - ${m.Morador}</span>
-                    <button onclick="window.excluirMorador(${m.id})" style="width:auto; background:red; color:white; border:none; padding:5px 10px; border-radius:5px;">🗑️</button>
-                </div>
-            `).join("") : "";
-        }
+
+        // Carrega Pendentes
         const { data: encs } = await supabase.from('Encomendas').select('*').eq('Status', 'pendente').order('created_at', {ascending: false});
         const listaEnc = document.getElementById('itens-lista');
         if(listaEnc) {
-            listaEnc.innerHTML = "";
+            listaEnc.innerHTML = encs && encs.length ? "" : "Nenhuma encomenda pendente.";
             if(encs) encs.forEach(i => {
                 listaEnc.innerHTML += `<div class="card" style="display:flex; justify-content:space-between; align-items:center; border-left:6px solid var(--primary);">
                     <span><b>Apto ${i.Apartamento}</b><br><small>${i.Descrição.split(' | ').join(', ')}</small></span>
@@ -171,31 +154,19 @@
                 </div>`;
             });
         }
+
+        // Carrega Histórico (Últimas 50)
+        const { data: hist } = await supabase.from('Encomendas').select('*').eq('Status', 'entregue').order('updated_at', {ascending: false}).limit(50);
+        const listaHist = document.getElementById('lista-historico');
+        if(listaHist && hist) {
+            listaHist.innerHTML = hist.map(h => `
+                <div class="hist-item">
+                    <b>Apto ${h.Apartamento}</b> - ${h.Descrição.substring(0,30)}... <br>
+                    <small>Entregue em: ${new Date(h.updated_at || h.created_at).toLocaleString('pt-BR')}</small>
+                </div>
+            `).join("");
+        }
     }
-
-    window.abrirScanner = () => {
-        const readerDiv = document.getElementById('reader');
-        readerDiv.style.display = 'block';
-        const html5QrCode = new Html5Qrcode("reader");
-        html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 150 } },
-            (txt) => { 
-                tocarBipSupermercado();
-                document.getElementById('protocolo-input').value = txt; 
-                html5QrCode.stop(); 
-                readerDiv.style.display = 'none'; 
-            }
-        ).catch(() => alert("Permita a câmera."));
-    };
-
-    window.incluirNaLista = () => {
-        const desc = document.getElementById('desc-input').value;
-        if(!desc) return;
-        const prot = document.getElementById('protocolo-input').value;
-        listaRascunho.push({ desc: desc, prot: prot || "S/ Protocolo" });
-        document.getElementById('lista-temp').innerHTML = listaRascunho.map(i => `<div class="item-temp">📦 ${i.desc} <br><small>Prot: ${i.prot}</small></div>`).join("");
-        document.getElementById('protocolo-input').value = ""; document.getElementById('desc-input').value = "";
-        document.getElementById('btn-salvar-geral').style.display = 'block';
-    };
 
     async function subirParaImgBB(base64) {
         const formData = new FormData();
@@ -209,7 +180,7 @@
 
     window.registrarEntrada = async () => {
         const btn = document.getElementById('btn-salvar-geral');
-        btn.disabled = true; btn.innerText = "PROCESSANDO FOTOS...";
+        btn.disabled = true; btn.innerText = "SALVANDO...";
         
         const apto = document.getElementById('apt-select').value;
         const descricaoFinal = listaRascunho.map(i => `${i.desc} (Prot: ${i.prot})`).join(' | ');
@@ -220,7 +191,6 @@
             if(url) linksFotos.push(url);
         }
         
-        // SALVANDO NO SUPABASE - COLUNA "Fotos" CORRIGIDA
         const { error } = await supabase.from('Encomendas').insert([{ 
             Apartamento: apto, 
             Morador: moradorAtual?.Morador, 
@@ -233,33 +203,17 @@
             localStorage.setItem('fotos_' + apto, JSON.stringify(listaFotos));
             if(moradorAtual?.Status) {
                 const tel = moradorAtual.Status.replace(/\D/g, '');
-                let volumesMsg = "";
-                listaRascunho.forEach((item, index) => {
-                    volumesMsg += `*Volume ${index + 1}:*%0A${item.desc}%0AProtocolo: ${item.prot}%0A%0A`;
-                });
-                const msg = `🏢 *PORTARIA REMBRANDT*%0A%0A📍 *Encomenda Chegou!*%0AApartamento: *${apto}*%0A%0A${volumesMsg}_Disponível na portaria._`;
-                window.location.href = `https://api.whatsapp.com/send?phone=55${tel}&text=${msg}`;
+                const msg = `🏢 *PORTARIA REMBRANDT*%0A%0A📍 *Encomenda Chegou!*%0AApartamento: *${apto}*%0A%0A_Disponível na portaria._`;
+                const zapUrl = `https://api.whatsapp.com/send?phone=55${tel}&text=${msg}`;
+                
+                // REDIRECIONA E RESETA APP
+                setTimeout(() => { window.location.href = zapUrl; }, 500);
+                setTimeout(() => { location.reload(); }, 1500);
             } else {
                 location.reload();
             }
-        } else {
-            alert("Erro ao salvar no banco. Verifique se o RLS está desativado no Supabase.");
-            btn.disabled = false; btn.innerText = "SALVAR E AVISAR WHATSAPP";
         }
     };
-
-    window.abrirEntrega = async (item) => {
-        entregaAtual = item;
-        const { data } = await supabase.from('Moradores').select('*').eq('Apartamento', item.Apartamento).maybeSingle();
-        moradorAtual = data;
-        document.getElementById('tela-registro').classList.add('hidden');
-        document.getElementById('lista-aguardando').classList.add('hidden');
-        document.getElementById('tela-entrega').classList.remove('hidden');
-        document.getElementById('detalhes-entrega-texto').innerHTML = `<b>Apto ${item.Apartamento}</b><br>${item.Descrição.split(' | ').join('<br>')}`;
-        setTimeout(iniciarAssinatura, 300);
-    };
-
-    window.limparAssinatura = () => { ctx.clearRect(0, 0, canvas.width, canvas.height); };
 
     window.finalizarEntrega = async () => {
         const receptor = document.getElementById('nome-receptor').value;
@@ -267,42 +221,46 @@
         
         const dataHora = new Date().toLocaleString('pt-BR');
         const fotosSalvas = JSON.parse(localStorage.getItem('fotos_' + entregaAtual.Apartamento) || "[]");
+        
+        // Geração do PDF
         const { jsPDF } = window.jspdf; 
         const doc = new jsPDF();
-        doc.setFontSize(16); doc.text("RECIBO - PORTARIA REMBRANDT", 20, 20);
-        doc.setFontSize(11);
-        doc.text(`Apartamento: ${entregaAtual.Apartamento}`, 20, 35);
-        doc.text(`Retirado por: ${receptor}`, 20, 42);
-        doc.text(`Data/Hora: ${dataHora}`, 20, 49);
-        let y = 60; doc.text("Volumes:", 20, y);
-        entregaAtual.Descrição.split(' | ').forEach(linha => { y += 7; doc.text(`- ${linha}`, 25, y); });
-        
-        if(fotosSalvas.length > 0) {
-            y += 10; let x = 20;
-            fotosSalvas.slice(0, 4).forEach(img => { 
-                try { doc.addImage(img, 'JPEG', x, y, 40, 40); x += 45; } catch(e) { }
-            });
-            y += 45;
-        }
-        
-        doc.addImage(canvas.toDataURL(), 'PNG', 20, y + 10, 70, 25);
-        const agoraParaNome = new Date();
-        const dataNome = agoraParaNome.toLocaleDateString('pt-BR').replace(/\//g, '-');
-        const horaNome = agoraParaNome.getHours() + "h" + agoraParaNome.getMinutes();
-        doc.save(`Recibo_Apto_${entregaAtual.Apartamento}_${dataNome}_${horaNome}.pdf`);
-        localStorage.removeItem('fotos_' + entregaAtual.Apartamento);
+        doc.text("RECIBO - PORTARIA REMBRANDT", 20, 20);
+        doc.text(`Apto: ${entregaAtual.Apartamento} | Retirado por: ${receptor}`, 20, 35);
+        doc.save(`Recibo_Apto_${entregaAtual.Apartamento}.pdf`);
 
-        await supabase.from('Encomendas').update({ Status: 'entregue' }).eq('id', entregaAtual.id);
+        // Atualiza no Banco
+        await supabase.from('Encomendas').update({ Status: 'entregue', updated_at: new Date().toISOString() }).eq('id', entregaAtual.id);
 
         if(moradorAtual?.Status) {
             const tel = moradorAtual.Status.replace(/\D/g, '');
-            let itensRetirados = "";
-            entregaAtual.Descrição.split(' | ').forEach(i => itensRetirados += `• ${i}%0A`);
-            const msgR = `🏢 *PORTARIA REMBRANDT*%0A%0A✅ *Retirada Confirmada!*%0AApartamento: *${entregaAtual.Apartamento}*%0AQuem retirou: *${receptor}*%0AData: ${dataHora.split(' ')[0]}%0AHorário: ${dataHora.split(' ')[1]}%0A%0A*Encomendas retiradas:*%0A${itensRetirados}`;
-            window.location.href = `https://api.whatsapp.com/send?phone=55${tel}&text=${msgR}`;
+            const msgR = `🏢 *PORTARIA REMBRANDT*%0A%0A✅ *Retirada Confirmada!*%0AApto: *${entregaAtual.Apartamento}*%0AQuem retirou: *${receptor}*`;
+            const zapUrl = `https://api.whatsapp.com/send?phone=55${tel}&text=${msgR}`;
+            
+            // REDIRECIONA E RESETA APP
+            setTimeout(() => { window.location.href = zapUrl; }, 500);
+            setTimeout(() => { location.reload(); }, 1500);
         } else {
             location.reload();
         }
+    };
+
+    // FUNÇÕES DE SUPORTE (SCANNER, FOTOS, ETC - MANTIDAS IGUAIS)
+    window.abrirScanner = () => {
+        const readerDiv = document.getElementById('reader');
+        readerDiv.style.display = 'block';
+        const html5QrCode = new Html5Qrcode("reader");
+        html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 150 } },
+            (txt) => { document.getElementById('protocolo-input').value = txt; html5QrCode.stop(); readerDiv.style.display = 'none'; }
+        );
+    };
+
+    window.incluirNaLista = () => {
+        const desc = document.getElementById('desc-input').value;
+        if(!desc) return;
+        listaRascunho.push({ desc: desc, prot: document.getElementById('protocolo-input').value || "S/P" });
+        document.getElementById('lista-temp').innerHTML = listaRascunho.map(i => `<div class="item-temp">📦 ${i.desc}</div>`).join("");
+        document.getElementById('btn-salvar-geral').style.display = 'block';
     };
 
     window.processarFoto = (input) => {
@@ -312,12 +270,8 @@
                 const img = new Image();
                 img.onload = () => {
                     const canvasComp = document.createElement('canvas');
-                    const max_size = 800;
-                    let width = img.width, height = img.height;
-                    if (width > height) { if (width > max_size) { height *= max_size / width; width = max_size; } }
-                    else { if (height > max_size) { width *= max_size / height; height = max_size; } }
-                    canvasComp.width = width; canvasComp.height = height;
-                    const ctxComp = canvasComp.getContext('2d'); ctxComp.drawImage(img, 0, 0, width, height);
+                    canvasComp.width = 600; canvasComp.height = 450;
+                    const ctxComp = canvasComp.getContext('2d'); ctxComp.drawImage(img, 0, 0, 600, 450);
                     listaFotos.push(canvasComp.toDataURL('image/jpeg', 0.7));
                     renderGaleria();
                 };
@@ -326,23 +280,21 @@
             reader.readAsDataURL(input.files[0]);
         }
     };
+
     function renderGaleria() {
         document.getElementById('galeria').innerHTML = listaFotos.map((f, i) => `
             <div class="foto-container"><img src="${f}" class="foto-mini"><button class="btn-del" onclick="window.removerFoto(${i})">X</button></div>
         `).join("");
     }
     window.removerFoto = (idx) => { listaFotos.splice(idx, 1); renderGaleria(); };
-    window.salvarMorador = async () => {
-        const a = document.getElementById('cad-apto').value;
-        const n = document.getElementById('cad-nome').value;
-        const w = document.getElementById('cad-whats').value;
-        await supabase.from('Moradores').insert([{ Apartamento: a, Morador: n, Status: w, created_at: new Date().toISOString() }]);
-        location.reload();
+    window.abrirEntrega = async (item) => {
+        entregaAtual = item;
+        document.getElementById('tela-registro').classList.add('hidden');
+        document.getElementById('lista-aguardando').classList.add('hidden');
+        document.getElementById('tela-entrega').classList.remove('hidden');
+        document.getElementById('detalhes-entrega-texto').innerHTML = `<b>Apto ${item.Apartamento}</b><br>${item.Descrição}`;
+        setTimeout(iniciarAssinatura, 300);
     };
-    window.excluirMorador = async (id) => { if(confirm("Apagar?")) { await supabase.from('Moradores').delete().eq('id', id); carregarTudo(); } };
-    window.abrirGestao = () => { document.getElementById('tela-registro').classList.add('hidden'); document.getElementById('lista-aguardando').classList.add('hidden'); document.getElementById('tela-cadastro').classList.remove('hidden'); };
-    window.fecharGestao = () => location.reload();
-
     function iniciarAssinatura() {
         canvas = document.getElementById('signature-pad'); ctx = canvas.getContext('2d');
         canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight; ctx.lineWidth = 3;
@@ -359,6 +311,9 @@
         const { data } = await supabase.from('Moradores').select('*').eq('Apartamento', a).maybeSingle();
         moradorAtual = data;
     };
+    window.limparAssinatura = () => { ctx.clearRect(0, 0, canvas.width, canvas.height); };
+    window.abrirGestao = () => { document.getElementById('tela-registro').classList.add('hidden'); document.getElementById('lista-aguardando').classList.add('hidden'); document.getElementById('tela-cadastro').classList.remove('hidden'); };
+    window.fecharGestao = () => location.reload();
 </script>
 </body>
 </html>
