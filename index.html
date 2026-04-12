@@ -125,16 +125,18 @@
 
     // --- BIP DE SUPERMERCADO ALTO ---
     function tocarBip() {
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        const oscillator = audioCtx.createOscillator();
-        const gainNode = audioCtx.createGain();
-        oscillator.type = 'sine';
-        oscillator.frequency.setValueAtTime(1000, audioCtx.currentTime); 
-        gainNode.gain.setValueAtTime(1.0, audioCtx.currentTime); // Volume Máximo
-        oscillator.connect(gainNode);
-        gainNode.connect(audioCtx.destination);
-        oscillator.start();
-        setTimeout(() => oscillator.stop(), 150);
+        try {
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(1000, audioCtx.currentTime); 
+            gainNode.gain.setValueAtTime(1.0, audioCtx.currentTime); 
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            oscillator.start();
+            setTimeout(() => { oscillator.stop(); audioCtx.close(); }, 150);
+        } catch(e) { console.error("Erro áudio", e); }
     }
 
     // LOGIN
@@ -178,12 +180,12 @@
         }
     }
 
-    // --- SCANNER CORRIGIDO (QR + BARCODE) ---
+    // --- SCANNER ULTRA CORRIGIDO (QR + BARRAS) ---
     window.abrirScanner = async () => {
         const readerDiv = document.getElementById('reader');
         const btnScan = document.getElementById('btn-scan');
         if (scannerObj) {
-            await scannerObj.stop();
+            try { await scannerObj.stop(); } catch(e) {}
             scannerObj = null;
             readerDiv.style.display = 'none';
             btnScan.innerText = "📷 ABRIR SCANNER";
@@ -191,16 +193,24 @@
         }
         readerDiv.style.display = 'block';
         btnScan.innerText = "🛑 PARAR SCANNER";
-        scannerObj = new Html5QrCode("reader");
-        const config = { fps: 15, qrbox: { width: 250, height: 150 } };
+        
+        scannerObj = new Html5QrCode("reader", { 
+            formatsToSupport: [ 
+                Html5QrCodeSupportedFormats.QR_CODE, Html5QrCodeSupportedFormats.EAN_13, 
+                Html5QrCodeSupportedFormats.EAN_8, Html5QrCodeSupportedFormats.CODE_128, 
+                Html5QrCodeSupportedFormats.UPC_A, Html5QrCodeSupportedFormats.ITF 
+            ] 
+        });
+
+        const config = { fps: 20, qrbox: { width: 280, height: 180 } };
         scannerObj.start({ facingMode: "environment" }, config, (decodedText) => {
             tocarBip();
             document.getElementById('protocolo-input').value = decodedText;
-            window.abrirScanner(); // Fecha após leitura
-        }).catch(err => { alert("Erro na câmera: " + err); });
+            window.abrirScanner(); 
+        }).catch(err => { alert("Erro câmera: " + err); window.abrirScanner(); });
     };
 
-    // --- GESTÃO DE MORADORES (RESTAURADA) ---
+    // --- GESTÃO DE MORADORES ---
     window.abrirGestao = async () => {
         document.getElementById('tela-registro').classList.add('hidden');
         document.getElementById('lista-aguardando').classList.add('hidden');
@@ -220,18 +230,18 @@
         const tel = document.getElementById('g-tel').value;
         if(!apto || !nome) return alert("Preencha Apto e Nome!");
         await supabase.from('Moradores').insert([{ Apartamento: apto, Morador: nome, Status: tel }]);
-        alert("Morador cadastrado!");
+        alert("Cadastrado!");
         window.abrirGestao();
     };
 
     window.delMorador = async (id) => {
-        if(confirm("Deseja apagar este morador?")) {
+        if(confirm("Apagar morador?")) {
             await supabase.from('Moradores').delete().eq('id', id);
             window.abrirGestao();
         }
     };
 
-    // UPLOAD E REGISTRO
+    // --- STORAGE E REGISTRO ---
     async function uploadParaStorage(base64, nome) {
         const blob = await fetch(base64).then(res => res.blob());
         const { data, error } = await supabase.storage.from('fotos_encomendas').upload(nome, blob, { upsert: true });
@@ -241,7 +251,7 @@
 
     window.registrarEntrada = async () => {
         const apto = document.getElementById('apt-select').value;
-        if(!apto) return alert("Selecione o apartamento!");
+        if(!apto) return alert("Selecione o apto!");
         document.getElementById('loader').classList.remove('hidden');
         try {
             let linksFotos = [];
@@ -287,7 +297,7 @@
 
     window.finalizarEntrega = async () => {
         const receptor = document.getElementById('nome-receptor').value;
-        if(!receptor) return alert("Informe quem está retirando!");
+        if(!receptor) return alert("Quem retirou?");
         await supabase.from('Encomendas').update({ Status: 'entregue', updated_at: new Date().toISOString() }).eq('id', entregaAtual.id);
         const tel = moradorAtual?.Status?.replace(/\D/g, '');
         if(tel) {
