@@ -26,25 +26,11 @@
         #signature-pad { border: 2px solid #333; background: #fff; width: 100%; height: 200px; border-radius: 8px; touch-action: none; margin-top: 10px; }
         .lista-moradores-scroll { max-height: 250px; overflow-y: auto; margin-top: 15px; border: 1px solid #ddd; padding: 5px; border-radius: 8px; background: #fafafa; }
         .morador-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #eee; }
-        #login-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg); z-index: 10000; display: flex; align-items: center; justify-content: center; }
-        .login-card { width: 90%; max-width: 350px; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); text-align: center; }
-        .login-card h2 { color: var(--primary); margin-bottom: 20px; }
-        .login-card input { margin-bottom: 15px; }
     </style>
 </head>
 <body>
 
-<div id="login-overlay">
-    <div class="login-card">
-        <h2>🔒 Acesso Restrito</h2>
-        <input type="email" id="log-email" placeholder="Seu e-mail">
-        <input type="password" id="log-pass" placeholder="Sua senha">
-        <button class="btn-success" id="btn-entrar">ENTRAR NO SISTEMA</button>
-        <p id="msg-erro" style="color:red; font-size: 14px; margin-top: 10px; display: none;">Acesso Negado!</p>
-    </div>
-</div>
-
-<div id="app-content" class="hidden">
+<div id="app-content">
     <header>🏢 PORTARIA REMBRANDT</header>
 
     <div class="container">
@@ -107,26 +93,8 @@
     let moradorAtual = null, entregaAtual = null, listaRascunho = [], listaFotos = [];
     let canvas, ctx, desenhando = false;
 
-    document.getElementById('btn-entrar').onclick = async () => {
-        const email = document.getElementById('log-email').value;
-        const password = document.getElementById('log-pass').value;
-        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) { document.getElementById('msg-erro').style.display = 'block'; } 
-        else { liberarAcesso(); }
-    };
-
-    async function verificarSessao() {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) liberarAcesso();
-    }
-
-    function liberarAcesso() {
-        document.getElementById('login-overlay').classList.add('hidden');
-        document.getElementById('app-content').classList.remove('hidden');
-        carregarTudo();
-    }
-
-    window.onload = verificarSessao;
+    // Inicializa o app sem login
+    window.onload = carregarTudo;
 
     function tocarBipSupermercado() {
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -209,6 +177,8 @@
                 });
                 const msg = `🏢 *PORTARIA REMBRANDT*%0A%0A📍 *Encomenda Chegou!*%0AApartamento: *${apto}*%0A%0A${volumesMsg}_Disponível na portaria._`;
                 window.location.href = `https://api.whatsapp.com/send?phone=55${tel}&text=${msg}`;
+                // Recarrega após breve delay para limpar a tela
+                setTimeout(() => location.reload(), 1000);
             } else {
                 location.reload();
             }
@@ -252,6 +222,8 @@
         const agoraParaNome = new Date();
         const dataNome = agoraParaNome.toLocaleDateString('pt-BR').replace(/\//g, '-');
         const horaNome = agoraParaNome.getHours() + "h" + agoraParaNome.getMinutes();
+        
+        // Salva o PDF
         doc.save(`Recibo_Apto_${entregaAtual.Apartamento}_${dataNome}_${horaNome}.pdf`);
         localStorage.removeItem('fotos_' + entregaAtual.Apartamento);
 
@@ -263,6 +235,8 @@
             entregaAtual.Descrição.split(' | ').forEach(i => itensRetirados += `• ${i}%0A`);
             const msgR = `🏢 *PORTARIA REMBRANDT*%0A%0A✅ *Retirada Confirmada!*%0AApartamento: *${entregaAtual.Apartamento}*%0AQuem retirou: *${receptor}*%0AData: ${dataHora.split(' ')[0]}%0AHorário: ${dataHora.split(' ')[1]}%0A%0A*Encomendas retiradas:*%0A${itensRetirados}`;
             window.location.href = `https://api.whatsapp.com/send?phone=55${tel}&text=${msgR}`;
+            // Força o recarregamento para resetar a tela após o envio
+            setTimeout(() => location.reload(), 1000);
         } else {
             location.reload();
         }
