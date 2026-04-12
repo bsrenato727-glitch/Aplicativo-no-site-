@@ -104,7 +104,7 @@
     import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
     const supabase = createClient('https://fpfykmxwtmngxeyyljaz.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZwZnlrbXh3dG1uZ3hleXlsamF6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzODU5NjAsImV4cCI6MjA5MDk2MTk2MH0.yaFPUO_2phJwqma5VaHNfLqSqnuWqLZdxchL3YB6KSA');
 
-    // CONFIGURAÇÃO IMGBB
+    // CHAVE DO IMGBB CONFIGURADA
     const IMGBB_KEY = 'c295ff836035b4b3053f316ee78a1656';
 
     let moradorAtual = null, entregaAtual = null, listaRascunho = [], listaFotos = [];
@@ -197,7 +197,6 @@
         document.getElementById('btn-salvar-geral').style.display = 'block';
     };
 
-    // FUNÇÃO PARA SUBIR PARA O IMGBB
     async function subirParaImgBB(base64) {
         const formData = new FormData();
         formData.append('image', base64.split(',')[1]);
@@ -215,24 +214,22 @@
         const apto = document.getElementById('apt-select').value;
         const descricaoFinal = listaRascunho.map(i => `${i.desc} (Prot: ${i.prot})`).join(' | ');
 
-        // Sobe cada foto para o ImgBB e pega os links
         const linksFotos = [];
         for(let f of listaFotos) {
             const url = await subirParaImgBB(f);
             if(url) linksFotos.push(url);
         }
         
-        // Salva tudo no Supabase (Links de fotos viram texto no campo fotos)
+        // SALVANDO NO SUPABASE - COLUNA "Fotos" CORRIGIDA
         const { error } = await supabase.from('Encomendas').insert([{ 
             Apartamento: apto, 
             Morador: moradorAtual?.Morador, 
             Descrição: descricaoFinal, 
             Status: 'pendente',
-            fotos: JSON.stringify(linksFotos) // Salva os links como texto
+            Fotos: JSON.stringify(linksFotos) 
         }]);
         
         if(!error) {
-            // Salva também no localStorage para o recibo PDF
             localStorage.setItem('fotos_' + apto, JSON.stringify(listaFotos));
             if(moradorAtual?.Status) {
                 const tel = moradorAtual.Status.replace(/\D/g, '');
@@ -246,7 +243,7 @@
                 location.reload();
             }
         } else {
-            alert("Erro ao salvar no banco. Verifique a internet.");
+            alert("Erro ao salvar no banco. Verifique se o RLS está desativado no Supabase.");
             btn.disabled = false; btn.innerText = "SALVAR E AVISAR WHATSAPP";
         }
     };
@@ -283,7 +280,7 @@
         if(fotosSalvas.length > 0) {
             y += 10; let x = 20;
             fotosSalvas.slice(0, 4).forEach(img => { 
-                try { doc.addImage(img, 'JPEG', x, y, 40, 40); x += 45; } catch(e) { console.log(e); }
+                try { doc.addImage(img, 'JPEG', x, y, 40, 40); x += 45; } catch(e) { }
             });
             y += 45;
         }
