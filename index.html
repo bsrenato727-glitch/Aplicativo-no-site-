@@ -253,7 +253,9 @@
         // Adiciona a assinatura no final do PDF
         doc.addImage(canvas.toDataURL(), 'PNG', 20, y + 10, 70, 25);
         
-        doc.save(`Recibo_Apto_${entregaAtual.Apartamento}.pdf`);
+        // AJUSTE SOLICITADO: Adicionado timestamp para evitar conflito de nome de arquivo
+        const timestamp = new Date().getTime();
+        doc.save(`Recibo_Apto_${entregaAtual.Apartamento}_${timestamp}.pdf`);
 
         // 2. ATUALIZAR STATUS NO SUPABASE
         await supabase.from('Encomendas').update({ Status: 'entregue' }).eq('id', entregaAtual.id);
