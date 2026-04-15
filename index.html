@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>PORTARIA REMBRANDT - V5.1</title>
+    <title>PORTARIA REMBRANDT - V5.3</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
-        :root { --primary: #075E54; --accent: #25D366; --bg: #f0f2f5; --red: #ff4d4d; --blue: #007bff; }
+        :root { --primary: #075E54; --accent: #25D366; --bg: #f0f2f5; --red: #ff4d4d; --blue: #007bff; --gray: #6c757d; }
         body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); touch-action: manipulation; }
         header { background: var(--primary); color: white; padding: 15px; text-align: center; font-weight: bold; position: sticky; top: 0; z-index: 100; }
         .container { max-width: 500px; margin: auto; padding: 10px; }
@@ -26,6 +26,14 @@
         #signature-pad { border: 2px solid #333; background: #fff; width: 100%; height: 200px; border-radius: 8px; touch-action: none; margin-top: 10px; }
         .lista-moradores-scroll { max-height: 250px; overflow-y: auto; margin-top: 15px; border: 1px solid #ddd; padding: 5px; border-radius: 8px; background: #fafafa; }
         .morador-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #eee; }
+        
+        /* Estilos do Histórico Retrátil */
+        .btn-historico { background: var(--gray); color: white; font-weight: bold; border: none; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+        .btn-historico::after { content: '▼'; font-size: 12px; }
+        .btn-historico.active::after { content: '▲'; }
+        #conteudo-historico { display: none; padding-top: 15px; }
+        .hist-item { border-left: 5px solid var(--gray); margin-bottom: 8px; padding: 10px; background: #f8f9fa; border-radius: 6px; font-size: 0.85rem; }
+        .filtro-input { margin-bottom: 10px; border: 2px solid #ddd; background: #fff; }
     </style>
 </head>
 <body>
@@ -83,6 +91,22 @@
             <h3>📦 Encomendas na Portaria</h3>
             <div id="itens-lista"></div>
         </div>
+
+        <div class="card" style="padding: 0; overflow: hidden;">
+            <button class="btn-historico" onclick="window.toggleHistorico()" id="btn-hist-main">✅ HISTÓRICO DE ENTREGAS</button>
+            <div id="conteudo-historico" style="padding: 15px;">
+                <div style="background: #f1f3f5; padding: 10px; border-radius: 8px; margin-bottom: 15px;">
+                    <label style="font-size: 0.75rem; font-weight: bold;">📅 POR DATA:</label>
+                    <input type="date" id="filtro-data" class="filtro-input" onchange="window.filtrarHistorico()">
+                    
+                    <label style="font-size: 0.75rem; font-weight: bold;">🏢 POR APARTAMENTO:</label>
+                    <input type="number" id="filtro-apto" class="filtro-input" placeholder="Ex: 101" oninput="window.filtrarHistorico()">
+                    
+                    <button class="btn-danger" onclick="window.limparFiltrosHistorico()" style="padding: 5px; font-size: 0.7rem; margin-top: 5px;">LIMPAR FILTROS / VER ÚLTIMAS 50</button>
+                </div>
+                <div id="lista-historico"></div>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -139,8 +163,75 @@
                 </div>`;
             });
         }
+        
+        window.carregarHistoricoGeral();
     }
 
+    // --- FUNÇÕES DO HISTÓRICO ---
+    window.toggleHistorico = () => {
+        const conteudo = document.getElementById('conteudo-historico');
+        const btn = document.getElementById('btn-hist-main');
+        if(conteudo.style.display === "block") {
+            conteudo.style.display = "none";
+            btn.classList.remove('active');
+        } else {
+            conteudo.style.display = "block";
+            btn.classList.add('active');
+        }
+    };
+
+    window.limparFiltrosHistorico = () => {
+        document.getElementById('filtro-data').value = "";
+        document.getElementById('filtro-apto').value = "";
+        window.carregarHistoricoGeral();
+    };
+
+    window.carregarHistoricoGeral = async () => {
+        const { data: hist } = await supabase.from('Encomendas').select('*').eq('Status', 'entregue').order('created_at', {ascending: false}).limit(50);
+        renderizarHistorico(hist || []);
+    };
+
+    window.filtrarHistorico = async () => {
+        const dataBusca = document.getElementById('filtro-data').value;
+        const aptoBusca = document.getElementById('filtro-apto').value;
+
+        // Se ambos estiverem vazios, volta pro geral
+        if(!dataBusca && !aptoBusca) {
+            window.carregarHistoricoGeral();
+            return;
+        }
+
+        let query = supabase.from('Encomendas').select('*').eq('Status', 'entregue');
+
+        if(dataBusca) {
+            const inicioDia = `${dataBusca}T00:00:00.000Z`;
+            const fimDia = `${dataBusca}T23:59:59.999Z`;
+            query = query.gte('created_at', inicioDia).lte('created_at', fimDia);
+        }
+
+        if(aptoBusca) {
+            query = query.eq('Apartamento', aptoBusca);
+        }
+
+        const { data: hist } = await query.order('created_at', {ascending: false});
+        renderizarHistorico(hist || []);
+    };
+
+    function renderizarHistorico(dados) {
+        const listaHist = document.getElementById('lista-historico');
+        if(dados.length === 0) {
+            listaHist.innerHTML = "<p style='font-size:0.8rem; text-align:center;'>Nenhuma entrega encontrada.</p>";
+            return;
+        }
+        listaHist.innerHTML = dados.map(h => `
+            <div class="hist-item">
+                <b>Apto ${h.Apartamento}</b> - ${new Date(h.created_at).toLocaleString('pt-BR')}<br>
+                <small>${h.Descrição.split(' | ').join(', ')}</small>
+            </div>
+        `).join("");
+    }
+
+    // --- LOGICA DE FOTOS E REGISTRO ---
     window.processarFoto = (input) => {
         if (input.files && input.files[0]) {
             const file = input.files[0];
@@ -239,7 +330,6 @@
         
         const dataHora = new Date().toLocaleString('pt-BR');
         
-        // 1. GERAR PDF DO RECIBO
         const { jsPDF } = window.jspdf; 
         const doc = new jsPDF();
         doc.setFontSize(16); doc.text("RECIBO - PORTARIA REMBRANDT", 20, 20);
@@ -250,22 +340,26 @@
         let y = 60; doc.text("Volumes Retirados:", 20, y);
         entregaAtual.Descrição.split(' | ').forEach(linha => { y += 7; doc.text(`- ${linha}`, 25, y); });
         
-        // Adiciona a assinatura no final do PDF
         doc.addImage(canvas.toDataURL(), 'PNG', 20, y + 10, 70, 25);
         
-        // AJUSTE SOLICITADO: Adicionado timestamp para evitar conflito de nome de arquivo
         const timestamp = new Date().getTime();
         doc.save(`Recibo_Apto_${entregaAtual.Apartamento}_${timestamp}.pdf`);
 
-        // 2. ATUALIZAR STATUS NO SUPABASE
         await supabase.from('Encomendas').update({ Status: 'entregue' }).eq('id', entregaAtual.id);
 
-        // 3. ENVIAR WHATSAPP DE RETIRADA
         if(moradorAtual?.Status) {
             const tel = moradorAtual.Status.replace(/\D/g, '');
             let itensRetirados = "";
             entregaAtual.Descrição.split(' | ').forEach(i => itensRetirados += `• ${i}%0A`);
-            const msgR = `🏢 *PORTARIA REMBRANDT*%0A%0A✅ *Retirada Confirmada!*%0AApartamento: *${entregaAtual.Apartamento}*%0AQuem retirou: *${receptor}*%0AData: ${dataHora.split(' ')[0]}%0AHorário: ${dataHora.split(' ')[1]}%0A%0A*Encomendas retiradas:*%0A${itensRetirados}`;
+            
+            let linkFoto = "";
+            if(entregaAtual.Fotos) {
+                const linksFormatados = entregaAtual.Fotos.split(' , ').join('%0A');
+                linkFoto = `%0A📸 *Link(s) da(s) Foto(s):*%0A${linksFormatados}`;
+            }
+
+            const msgR = `🏢 *PORTARIA REMBRANDT*%0A%0A✅ *Retirada Confirmada!*%0AApartamento: *${entregaAtual.Apartamento}*%0AQuem retirou: *${receptor}*%0AData: ${dataHora.split(' ')[0]}%0AHorário: ${dataHora.split(' ')[1]}%0A%0A*Encomendas retiradas:*%0A${itensRetirados}${linkFoto}`;
+            
             window.location.href = `https://api.whatsapp.com/send?phone=55${tel}&text=${msgR}`;
             setTimeout(() => location.reload(), 1500);
         } else {
@@ -273,7 +367,7 @@
         }
     };
 
-    // --- FUNÇÕES COMPLEMENTARES ---
+    // --- UTILITARIOS ---
     window.abrirScanner = () => {
         const readerDiv = document.getElementById('reader');
         readerDiv.style.display = 'block';
