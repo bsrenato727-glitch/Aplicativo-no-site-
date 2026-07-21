@@ -3,36 +3,52 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>PORTARIA REMBRANDT - V5.4</title>
+    <title>PORTARIA REMBRANDT - V5.5</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
-        :root { --primary: #075E54; --accent: #25D366; --bg: #f0f2f5; --red: #ff4d4d; --blue: #007bff; --gray: #6c757d; }
+        :root { --primary: #075E54; --accent: #25D366; --bg: #f0f2f5; --red: #ff4d4d; --blue: #007bff; --gray: #6c757d; --orange: #f39c12; }
+        * { box-sizing: border-box; }
         body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); touch-action: manipulation; }
-        header { background: var(--primary); color: white; padding: 15px; text-align: center; font-weight: bold; position: sticky; top: 0; z-index: 100; }
+        header { background: var(--primary); color: white; padding: 15px; text-align: center; font-weight: bold; position: sticky; top: 0; z-index: 100; font-size: 1.1rem; }
         .container { max-width: 500px; margin: auto; padding: 10px; }
         .card { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 15px; }
-        input, select, button { width: 100%; padding: 12px; margin-top: 5px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
+        input, select, button { width: 100%; padding: 12px; margin-top: 5px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; }
         .btn-success { background: var(--accent); color: white; border: none; font-weight: bold; }
         .btn-outline { background: white; color: var(--primary); border: 1px solid var(--primary); margin-top: 10px; }
         .btn-danger { background: var(--red); color: white; border: none; margin-top: 5px; font-size: 14px; padding: 8px; }
+        .btn-acrescimo { background: var(--orange); color: white; border: none; padding: 6px 12px; border-radius: 5px; font-size: 0.8rem; font-weight: bold; cursor: pointer; }
         .item-temp { background: #ffffff; padding: 10px; margin-top: 8px; border-radius: 6px; font-size: 0.95rem; border: 1px solid #dae1e9; border-left: 5px solid var(--blue); }
+        .acrescimo-item { background: #e8f5e9; padding: 10px; margin-top: 8px; border-radius: 6px; border-left: 5px solid var(--accent); }
         .hidden { display: none !important; }
-        #reader { width: 100%; border-radius: 8px; margin-top: 10px; display: none; background: #000; overflow: hidden; }
+        .scanner-box { width: 100%; border-radius: 8px; margin-top: 10px; display: none; background: #000; overflow: hidden; }
         .galeria-fotos { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
         .foto-container { position: relative; width: 80px; height: 80px; }
         .foto-mini { width: 100%; height: 100%; object-fit: cover; border-radius: 8px; border: 1px solid #ccc; }
-        .btn-del { position: absolute; top: -5px; right: -5px; background: var(--red); color: white; border: none; border-radius: 50%; width: 22px; height: 22px; font-weight: bold; display: flex; align-items: center; justify-content: center; }
+        .btn-del { position: absolute; top: -5px; right: -5px; background: var(--red); color: white; border: none; border-radius: 50%; width: 22px; height: 22px; font-weight: bold; display: flex; align-items: center; justify-content: center; cursor: pointer; }
         #signature-pad { border: 2px solid #333; background: #fff; width: 100%; height: 200px; border-radius: 8px; touch-action: none; margin-top: 10px; }
         .lista-moradores-scroll { max-height: 250px; overflow-y: auto; margin-top: 15px; border: 1px solid #ddd; padding: 5px; border-radius: 8px; background: #fafafa; }
         .morador-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #eee; }
-        
         .btn-historico { background: var(--gray); color: white; font-weight: bold; border: none; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
         .btn-historico::after { content: '▼'; font-size: 12px; }
         .btn-historico.active::after { content: '▲'; }
         #conteudo-historico { display: none; padding-top: 15px; }
         .hist-item { border-left: 5px solid var(--gray); margin-bottom: 8px; padding: 10px; background: #f8f9fa; border-radius: 6px; font-size: 0.85rem; }
         .filtro-input { margin-bottom: 10px; border: 2px solid #ddd; background: #fff; }
+        .painel-status { display: flex; gap: 8px; margin-bottom: 15px; }
+        .status-badge { flex: 1; padding: 10px 8px; border-radius: 10px; text-align: center; font-size: 0.75rem; font-weight: bold; display: flex; align-items: center; justify-content: center; gap: 6px; }
+        .status-ok { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .status-erro { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .status-aguardando { background: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
+        .pulse { animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+        .enc-pendente-card { display: flex; justify-content: space-between; align-items: center; border-left: 6px solid var(--primary); flex-wrap: wrap; gap: 8px; }
+        .enc-pendente-card .botoes { display: flex; gap: 6px; flex-wrap: wrap; }
+        .btn-inline { width: auto; padding: 8px 14px; border-radius: 5px; font-size: 0.85rem; border: none; cursor: pointer; font-weight: bold; }
+        .loading-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 9999; }
+        .loading-box { background: white; padding: 30px 40px; border-radius: 12px; text-align: center; }
+        .spinner { width: 40px; height: 40px; border: 4px solid #ddd; border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 10px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
@@ -41,30 +57,33 @@
     <header>🏢 PORTARIA REMBRANDT</header>
 
     <div class="container">
+
+        <div class="painel-status" id="painel-status">
+            <div class="status-badge status-aguardando" id="badge-supabase"><span class="pulse">⏳</span> Supabase...</div>
+            <div class="status-badge status-aguardando" id="badge-imgbb"><span class="pulse">⏳</span> ImgBB...</div>
+        </div>
+
         <div id="tela-registro" class="card">
             <h3>📥 Registrar Encomenda</h3>
-            <select id="apt-select" onchange="window.verificarMorador()"></select>
-            
-            <div style="background: #f9f9f9; padding: 10px; border-radius: 8px; margin-top: 10px; border: 1px solid #eee;">
+            <select id="apt-select" onchange="window.verificarMorador()"><option value="">Carregando moradores...</option></select>
+            <div style="background:#f9f9f9;padding:10px;border-radius:8px;margin-top:10px;border:1px solid #eee;">
                 <input type="text" id="protocolo-input" placeholder="Protocolo/Código">
                 <button class="btn-outline" onclick="window.abrirScanner()">📷 SCANNER</button>
-                <div id="reader"></div>
+                <div id="reader" class="scanner-box"></div>
                 <input type="text" id="desc-input" placeholder="O que chegou?">
-                <button class="btn-outline" style="background:var(--blue); color:white; border:none;" onclick="window.incluirNaLista()">➕ ADICIONAR ITEM</button>
+                <button class="btn-outline" style="background:var(--blue);color:white;border:none;" onclick="window.incluirNaLista()">➕ ADICIONAR ITEM</button>
             </div>
             <div id="lista-temp"></div>
-
-            <label style="display:block; margin-top:20px; font-weight:bold;">📸 Fotos das Encomendas:</label>
+            <label style="display:block;margin-top:20px;font-weight:bold;">📸 Fotos das Encomendas:</label>
             <input type="file" id="foto-input" accept="image/*" capture="camera" onchange="window.processarFoto(this)">
             <div id="galeria" class="galeria-fotos"></div>
-
-            <button class="btn-success" id="btn-salvar-geral" onclick="window.registrarEntrada()" style="margin-top:25px; display:none;">SALVAR E AVISAR WHATSAPP</button>
-            <button class="btn-outline" onclick="window.abrirGestao()" style="margin-top:40px; border-style: dashed; color: #555;">⚙️ GESTÃO DE MORADORES</button>
+            <button class="btn-success" id="btn-salvar-geral" onclick="window.registrarEntrada()" style="margin-top:25px;display:none;">SALVAR E AVISAR WHATSAPP</button>
+            <button class="btn-outline" onclick="window.abrirGestao()" style="margin-top:40px;border-style:dashed;color:#555;">⚙️ GESTÃO DE MORADORES</button>
         </div>
 
         <div id="tela-cadastro" class="card hidden">
             <h3>👥 Gerenciar Moradores</h3>
-            <div style="background: #eef1f5; padding: 12px; border-radius: 8px;">
+            <div style="background:#eef1f5;padding:12px;border-radius:8px;">
                 <input type="number" id="cad-apto" placeholder="Apto">
                 <input type="text" id="cad-nome" placeholder="Nome">
                 <input type="text" id="cad-whats" placeholder="WhatsApp (DDI+DDD+Num)">
@@ -76,14 +95,31 @@
 
         <div id="tela-entrega" class="card hidden">
             <h3>📤 Retirada de Encomenda</h3>
-            <div id="detalhes-entrega-texto" style="margin-bottom: 15px; font-size: 0.9rem;"></div>
+            <div id="detalhes-entrega-texto" style="margin-bottom:15px;font-size:0.9rem;"></div>
             <input type="text" id="nome-receptor" placeholder="Quem está retirando?">
-            <label style="display:block; margin-top:10px;">Assinatura:</label>
+            <label style="display:block;margin-top:10px;">Assinatura:</label>
             <canvas id="signature-pad"></canvas>
             <button class="btn-danger" onclick="window.limparAssinatura()">🧹 LIMPAR ASSINATURA</button>
-            
             <button class="btn-success" onclick="window.finalizarEntrega()" style="margin-top:25px;">CONCLUIR E GERAR RECIBO</button>
             <button class="btn-outline" onclick="location.reload()">CANCELAR</button>
+        </div>
+
+        <div id="tela-acrescimo" class="card hidden">
+            <h3>➕ Acrescentar Encomenda</h3>
+            <div id="acrescimo-info" style="background:#e8f5e9;padding:10px;border-radius:8px;margin-bottom:10px;font-size:0.9rem;"></div>
+            <div style="background:#f9f9f9;padding:10px;border-radius:8px;border:1px solid #eee;">
+                <input type="text" id="acrescimo-protocolo" placeholder="Protocolo/Código">
+                <button class="btn-outline" onclick="window.abrirScannerAcrescimo()">📷 SCANNER</button>
+                <div id="reader-acrescimo" class="scanner-box"></div>
+                <input type="text" id="acrescimo-desc" placeholder="O que chegou?">
+                <button class="btn-outline" style="background:var(--accent);color:white;border:none;" onclick="window.adicionarItemAcrescimo()">➕ ADICIONAR ITEM</button>
+            </div>
+            <div id="lista-acrescimo-temp"></div>
+            <label style="display:block;margin-top:15px;font-weight:bold;">📸 Foto da Nova Encomenda:</label>
+            <input type="file" id="acrescimo-foto" accept="image/*" capture="camera" onchange="window.processarFotoAcrescimo(this)">
+            <div id="galeria-acrescimo" class="galeria-fotos"></div>
+            <button class="btn-success" onclick="window.confirmarAcrescimo()" style="margin-top:20px;">CONFIRMAR E AVISAR MORADOR</button>
+            <button class="btn-outline" onclick="window.cancelarAcrescimo()">VOLTAR</button>
         </div>
 
         <div id="lista-aguardando">
@@ -91,17 +127,15 @@
             <div id="itens-lista"></div>
         </div>
 
-        <div class="card" style="padding: 0; overflow: hidden;">
+        <div class="card" style="padding:0;overflow:hidden;">
             <button class="btn-historico" onclick="window.toggleHistorico()" id="btn-hist-main">✅ HISTÓRICO DE ENTREGAS</button>
-            <div id="conteudo-historico" style="padding: 15px;">
-                <div style="background: #f1f3f5; padding: 10px; border-radius: 8px; margin-bottom: 15px;">
-                    <label style="font-size: 0.75rem; font-weight: bold;">📅 POR DATA:</label>
+            <div id="conteudo-historico" style="padding:15px;">
+                <div style="background:#f1f3f5;padding:10px;border-radius:8px;margin-bottom:15px;">
+                    <label style="font-size:0.75rem;font-weight:bold;">📅 POR DATA:</label>
                     <input type="date" id="filtro-data" class="filtro-input" onchange="window.filtrarHistorico()">
-                    
-                    <label style="font-size: 0.75rem; font-weight: bold;">🏢 POR APARTAMENTO:</label>
+                    <label style="font-size:0.75rem;font-weight:bold;">🏢 POR APARTAMENTO:</label>
                     <input type="number" id="filtro-apto" class="filtro-input" placeholder="Ex: 101" oninput="window.filtrarHistorico()">
-                    
-                    <button class="btn-danger" onclick="window.limparFiltrosHistorico()" style="padding: 5px; font-size: 0.7rem; margin-top: 5px;">LIMPAR FILTROS / VER ÚLTIMAS 50</button>
+                    <button class="btn-danger" onclick="window.limparFiltrosHistorico()" style="padding:5px;font-size:0.7rem;margin-top:5px;">LIMPAR FILTROS / VER ÚLTIMAS 50</button>
                 </div>
                 <div id="lista-historico"></div>
             </div>
@@ -109,186 +143,328 @@
     </div>
 </div>
 
+<div id="loading-overlay" class="loading-overlay" style="display:none;">
+    <div class="loading-box">
+        <div class="spinner"></div>
+        <div id="loading-texto">Processando...</div>
+    </div>
+</div>
+
 <script type="module">
-    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
     const supabase = createClient('https://fpfykmxwtmngxeyyljaz.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZwZnlrbXh3dG1uZ3hleXlsamF6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzODU5NjAsImV4cCI6MjA5MDk2MTk2MH0.yaFPUO_2phJwqma5VaHNfLqSqnuWqLZdxchL3YB6KSA');
+    const IMGBB_API_KEY = '713e4618ff4346fac68b99f16743a008';
 
-    const IMGBB_API_KEY = '713e4618ff4346fac68b99f16743a008'; 
-
-    let moradorAtual = null, entregaAtual = null, listaRascunho = [], listaFotosBlobs = [], listaFotosVisualizacao = [];
+    let moradorAtual = null;
+    let entregaAtual = null;
+    let listaRascunho = [];
+    let listaFotosBlobs = [];
+    let listaFotosVisualizacao = [];
+    let acrescimoAtual = null;
+    let listaAcrescimoRascunho = [];
+    let listaFotosAcrescimoBlobs = [];
+    let listaFotosAcrescimoVis = [];
     let canvas, ctx, desenhando = false;
 
-    window.onload = carregarTudo;
+    // Armazena os itens vindos do banco para evitar erro de aspas no HTML
+    let encomendasPendentes = [];
 
-    function tocarBipSupermercado() {
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        const oscillator = audioCtx.createOscillator();
-        const gainNode = audioCtx.createGain();
-        oscillator.type = 'sine';
-        oscillator.frequency.setValueAtTime(750, audioCtx.currentTime);
-        gainNode.gain.setValueAtTime(0.5, audioCtx.currentTime);
-        oscillator.connect(gainNode);
-        gainNode.connect(audioCtx.destination);
-        oscillator.start();
-        setTimeout(() => oscillator.stop(), 120);
+    function mostrarLoading(texto) {
+        document.getElementById('loading-texto').innerText = texto || 'Processando...';
+        document.getElementById('loading-overlay').style.display = 'flex';
+    }
+    function esconderLoading() {
+        document.getElementById('loading-overlay').style.display = 'none';
+    }
+    function tocarBip() {
+        try {
+            const ac = new (window.AudioContext || window.webkitAudioContext)();
+            const o = ac.createOscillator(); const g = ac.createGain();
+            o.type = 'sine'; o.frequency.setValueAtTime(750, ac.currentTime);
+            g.gain.setValueAtTime(0.5, ac.currentTime);
+            o.connect(g); g.connect(ac.destination); o.start();
+            setTimeout(() => o.stop(), 120);
+        } catch(e) {}
+    }
+
+    async function testarConexoes() {
+        const badgeSupa = document.getElementById('badge-supabase');
+        const badgeImg = document.getElementById('badge-imgbb');
+        try {
+            const { error } = await supabase.from('Moradores').select('id').limit(1);
+            if(!error) { badgeSupa.className = 'status-badge status-ok'; badgeSupa.innerHTML = '✅ Supabase OK'; }
+            else { throw error; }
+        } catch(e) { badgeSupa.className = 'status-badge status-erro'; badgeSupa.innerHTML = '❌ Supabase Erro'; }
+        
+        try {
+            const pixelBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+            const fd = new FormData(); fd.append('image', pixelBase64);
+            const res = await fetch('https://api.imgbb.com/1/upload?key=' + IMGBB_API_KEY, { method: 'POST', body: fd });
+            const json = await res.json();
+            if(json.success) { badgeImg.className = 'status-badge status-ok'; badgeImg.innerHTML = '✅ ImgBB OK'; }
+            else { throw new Error('Falha'); }
+        } catch(e) { badgeImg.className = 'status-badge status-erro'; badgeImg.innerHTML = '❌ ImgBB Erro'; }
     }
 
     async function carregarTudo() {
-        const { data: moras } = await supabase.from('Moradores').select('*').order('Apartamento');
-        const sel = document.getElementById('apt-select');
-        if(sel) {
-            sel.innerHTML = '<option value="">Selecione o Apto...</option>';
-            if(moras) moras.forEach(m => sel.innerHTML += `<option value="${m.Apartamento}">Apto ${m.Apartamento} - ${m.Morador}</option>`);
-        }
-        
-        const listaExcluir = document.getElementById('lista-contatos-excluir');
-        if(listaExcluir) {
-            listaExcluir.innerHTML = moras ? moras.map(m => `
-                <div class="morador-item">
-                    <span><b>${m.Apartamento}</b> - ${m.Morador}</span>
-                    <button onclick="window.excluirMorador(${m.id})" style="width:auto; background:red; color:white; border:none; padding:5px 10px; border-radius:5px;">🗑️</button>
-                </div>
-            `).join("") : "";
-        }
+        mostrarLoading('Carregando dados...');
+        try {
+            const { data: moras } = await supabase.from('Moradores').select('*').order('Apartamento');
+            const sel = document.getElementById('apt-select');
+            if(sel) {
+                sel.innerHTML = '<option value="">Selecione o Apto...</option>';
+                if(moras && moras.length > 0) {
+                    moras.forEach(m => sel.innerHTML += '<option value="' + m.Apartamento + '">Apto ' + m.Apartamento + ' - ' + m.Morador + '</option>');
+                } else {
+                    sel.innerHTML = '<option value="">Nenhum morador cadastrado</option>';
+                }
+            }
 
-        const { data: encs } = await supabase.from('Encomendas').select('*').eq('Status', 'pendente').order('created_at', {ascending: false});
-        const listaEnc = document.getElementById('itens-lista');
-        if(listaEnc) {
-            listaEnc.innerHTML = "";
-            if(encs) encs.forEach(i => {
-                listaEnc.innerHTML += `<div class="card" style="display:flex; justify-content:space-between; align-items:center; border-left:6px solid var(--primary);">
-                    <span><b>Apto ${i.Apartamento}</b><br><small>${i.Descrição.split(' | ').join(', ')}</small></span>
-                    <button onclick='window.abrirEntrega(${JSON.stringify(i)})' style="width:auto; padding:8px 15px; background:var(--primary); color:white; border:none; border-radius:5px;">ENTREGAR</button>
-                </div>`;
-            });
+            const listaExcluir = document.getElementById('lista-contatos-excluir');
+            if(listaExcluir) {
+                if(moras && moras.length > 0) {
+                    listaExcluir.innerHTML = moras.map(m => '<div class="morador-item"><span><b>' + m.Apartamento + '</b> - ' + m.Morador + '<br><small style="color:#888;">' + (m.Status || 'Sem WhatsApp') + '</small></span><button onclick="window.excluirMorador(' + m.id + ')" class="btn-inline" style="background:red;color:white;padding:5px 10px;font-size:0.8rem;">🗑️</button></div>').join('');
+                } else {
+                    listaExcluir.innerHTML = '<p style="text-align:center;color:#888;padding:20px;">Nenhum morador cadastrado.</p>';
+                }
+            }
+
+            const { data: encs } = await supabase.from('Encomendas').select('*').eq('Status', 'pendente').order('created_at', { ascending: false });
+            encomendasPendentes = (encs || []);
+            renderizarPendentes();
+
+            await carregarHistoricoGeral();
+        } catch(e) {
+            alert('Erro ao carregar dados.');
+        } finally {
+            esconderLoading();
         }
-        window.carregarHistoricoGeral();
+    }
+
+    function renderizarPendentes() {
+        const listaEnc = document.getElementById('itens-lista');
+        listaEnc.innerHTML = '';
+        if(encomendasPendentes.length === 0) {
+            listaEnc.innerHTML = '<p style="text-align:center;color:#888;padding:20px;">Nenhuma encomenda pendente.</p>';
+            return;
+        }
+        encomendasPendentes.forEach((i, index) => {
+            const itensFormatados = i.Descrição.split(' | ').join('<br>');
+            listaEnc.innerHTML += '<div class="card enc-pendente-card" style="margin-bottom:10px;"><span style="flex:1;min-width:150px;"><b>Apto ' + i.Apartamento + '</b> - ' + (i.Morador || '') + '<br><small>' + itensFormatados + '</small></span><div class="botoes"><button class="btn-inline btn-acrescimo" onclick="window.abrirAcrescimoPorIndex(' + index + ')">➕ ADICIONAR</button><button class="btn-inline" style="background:var(--primary);color:white;" onclick="window.abrirEntregaPorIndex(' + index + ')">ENTREGAR</button></div></div>';
+        });
     }
 
     window.toggleHistorico = () => {
-        const conteudo = document.getElementById('conteudo-historico');
-        const btn = document.getElementById('btn-hist-main');
-        if(conteudo.style.display === "block") {
-            conteudo.style.display = "none";
-            btn.classList.remove('active');
-        } else {
-            conteudo.style.display = "block";
-            btn.classList.add('active');
-        }
+        const c = document.getElementById('conteudo-historico');
+        const b = document.getElementById('btn-hist-main');
+        if(c.style.display === 'block') { c.style.display = 'none'; b.classList.remove('active'); }
+        else { c.style.display = 'block'; b.classList.add('active'); }
     };
 
     window.limparFiltrosHistorico = () => {
-        document.getElementById('filtro-data').value = "";
-        document.getElementById('filtro-apto').value = "";
-        window.carregarHistoricoGeral();
+        document.getElementById('filtro-data').value = '';
+        document.getElementById('filtro-apto').value = '';
+        carregarHistoricoGeral();
     };
 
-    window.carregarHistoricoGeral = async () => {
-        const { data: hist } = await supabase.from('Encomendas').select('*').eq('Status', 'entregue').order('created_at', {ascending: false}).limit(50);
+    async function carregarHistoricoGeral() {
+        const { data: hist } = await supabase.from('Encomendas').select('*').eq('Status', 'entregue').order('created_at', { ascending: false }).limit(50);
         renderizarHistorico(hist || []);
-    };
+    }
 
     window.filtrarHistorico = async () => {
         const dataBusca = document.getElementById('filtro-data').value;
         const aptoBusca = document.getElementById('filtro-apto').value;
-        if(!dataBusca && !aptoBusca) { window.carregarHistoricoGeral(); return; }
+        if(!dataBusca && !aptoBusca) { carregarHistoricoGeral(); return; }
         let query = supabase.from('Encomendas').select('*').eq('Status', 'entregue');
-        if(dataBusca) {
-            const inicioDia = `${dataBusca}T00:00:00.000Z`;
-            const fimDia = `${dataBusca}T23:59:59.999Z`;
-            query = query.gte('created_at', inicioDia).lte('created_at', fimDia);
-        }
-        if(aptoBusca) query = query.eq('Apartamento', aptoBusca);
-        const { data: hist } = await query.order('created_at', {ascending: false});
+        if(dataBusca) { query = query.gte('created_at', dataBusca + 'T00:00:00.000Z').lte('created_at', dataBusca + 'T23:59:59.999Z'); }
+        if(aptoBusca) { query = query.eq('Apartamento', aptoBusca); }
+        const { data: hist } = await query.order('created_at', { ascending: false });
         renderizarHistorico(hist || []);
     };
 
     function renderizarHistorico(dados) {
-        const listaHist = document.getElementById('lista-historico');
-        if(dados.length === 0) {
-            listaHist.innerHTML = "<p style='font-size:0.8rem; text-align:center;'>Nenhuma entrega encontrada.</p>";
-            return;
-        }
-        listaHist.innerHTML = dados.map(h => `
-            <div class="hist-item">
-                <b>Apto ${h.Apartamento}</b> - ${new Date(h.created_at).toLocaleString('pt-BR')}<br>
-                <small>${h.Descrição.split(' | ').join(', ')}</small>
-            </div>
-        `).join("");
+        const el = document.getElementById('lista-historico');
+        if(dados.length === 0) { el.innerHTML = '<p style="font-size:0.8rem;text-align:center;">Nenhuma entrega encontrada.</p>'; return; }
+        el.innerHTML = dados.map(h => '<div class="hist-item"><b>Apto ' + h.Apartamento + '</b> - ' + new Date(h.created_at).toLocaleString('pt-BR') + '<br><small>' + h.Descrição.split(' | ').join(', ') + '</small></div>').join('');
     }
 
     window.processarFoto = (input) => {
-        if (input.files && input.files[0]) {
+        if(input.files && input.files[0]) {
             const file = input.files[0];
             listaFotosBlobs.push(file);
             const reader = new FileReader();
-            reader.onload = (e) => {
-                listaFotosVisualizacao.push(e.target.result);
-                renderGaleria();
-            };
+            reader.onload = (e) => { listaFotosVisualizacao.push(e.target.result); renderGaleria(); };
             reader.readAsDataURL(file);
         }
     };
 
     function renderGaleria() {
-        document.getElementById('galeria').innerHTML = listaFotosVisualizacao.map((f, i) => `
-            <div class="foto-container"><img src="${f}" class="foto-mini"><button class="btn-del" onclick="window.removerFoto(${i})">X</button></div>
-        `).join("");
+        document.getElementById('galeria').innerHTML = listaFotosVisualizacao.map((f, i) => '<div class="foto-container"><img src="' + f + '" class="foto-mini"><button class="btn-del" onclick="window.removerFoto(' + i + ')">X</button></div>').join('');
     }
 
-    window.removerFoto = (idx) => { 
-        listaFotosBlobs.splice(idx, 1); 
-        listaFotosVisualizacao.splice(idx, 1); 
-        renderGaleria(); 
+    window.removerFoto = (idx) => { listaFotosBlobs.splice(idx, 1); listaFotosVisualizacao.splice(idx, 1); renderGaleria(); };
+
+    async function subirFotos(arrBlobs) {
+        let urls = [];
+        for(let file of arrBlobs) {
+            const fd = new FormData(); fd.append('image', file);
+            try {
+                const res = await fetch('https://api.imgbb.com/1/upload?key=' + IMGBB_API_KEY, { method: 'POST', body: fd });
+                const json = await res.json();
+                if(json.success) urls.push(json.data.url);
+            } catch(e) { console.error('Erro upload:', e); }
+        }
+        return urls.join(' , ');
+    }
+
+    window.incluirNaLista = () => {
+        const desc = document.getElementById('desc-input').value;
+        if(!desc) return;
+        const prot = document.getElementById('protocolo-input').value;
+        listaRascunho.push({ desc, prot: prot || 'S/ Protocolo' });
+        document.getElementById('lista-temp').innerHTML = listaRascunho.map(i => '<div class="item-temp">📦 ' + i.desc + '<br><small>Prot: ' + i.prot + '</small></div>').join('');
+        document.getElementById('protocolo-input').value = '';
+        document.getElementById('desc-input').value = '';
+        document.getElementById('btn-salvar-geral').style.display = 'block';
     };
 
-    async function subirFotosParaImgBB() {
-        let urlsResultantes = [];
-        for (let file of listaFotosBlobs) {
-            const formData = new FormData();
-            formData.append("image", file);
-            try {
-                const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
-                    method: "POST",
-                    body: formData
-                });
-                const json = await res.json();
-                if (json.success) urlsResultantes.push(json.data.url);
-            } catch (e) { console.error("Erro upload ImgBB", e); }
-        }
-        return urlsResultantes.join(' , ');
-    }
+    window.abrirScanner = () => {
+        const readerDiv = document.getElementById('reader');
+        readerDiv.style.display = 'block';
+        const html5QrCode = new Html5Qrcode('reader');
+        html5QrCode.start({ facingMode: 'environment' }, { fps: 10, qrbox: { width: 250, height: 150 } },
+            (txt) => { tocarBip(); document.getElementById('protocolo-input').value = txt; html5QrCode.stop(); readerDiv.style.display = 'none'; }
+        ).catch(() => alert('Permita o acesso à câmera.'));
+    };
 
     window.registrarEntrada = async () => {
         const btn = document.getElementById('btn-salvar-geral');
         const apto = document.getElementById('apt-select').value;
-        if(!apto) return alert("Selecione o apartamento!");
-        btn.innerText = "⏳ ENVIANDO FOTOS...";
-        btn.disabled = true;
-        const linksDasFotos = await subirFotosParaImgBB();
-        const descricaoFinal = listaRascunho.map(i => `${i.desc} (Prot: ${i.prot})`).join(' | ');
-        const { error } = await supabase.from('Encomendas').insert([{ 
-            Apartamento: apto, 
-            Morador: moradorAtual?.Morador, 
-            Descrição: descricaoFinal, 
-            Status: 'pendente',
-            Fotos: linksDasFotos
-        }]);
-        if(!error) {
-            if(moradorAtual?.Status) {
-                const tel = moradorAtual.Status.replace(/\D/g, '');
-                let volumesMsg = "";
-                listaRascunho.forEach((item, index) => {
-                    volumesMsg += `*Volume ${index + 1}:*%0A${item.desc}%0AProtocolo: ${item.prot}%0A%0A`;
-                });
-                const msg = `🏢 *PORTARIA REMBRANDT*%0A%0A📍 *Encomenda Chegou!*%0AApartamento: *${apto}*%0A%0A${volumesMsg}_Disponível na portaria._`;
-                window.location.href = `https://api.whatsapp.com/send?phone=${tel}&text=${msg}`;
-                setTimeout(() => location.reload(), 1000);
-            } else { location.reload(); }
-        } else {
-            alert("Erro ao salvar: " + error.message);
-            btn.disabled = false; btn.innerText = "SALVAR E AVISAR WHATSAPP";
+        if(!apto) return alert('Selecione o apartamento!');
+        if(listaRascunho.length === 0) return alert('Adicione pelo menos um item!');
+        btn.innerText = '⏳ ENVIANDO...'; btn.disabled = true;
+        mostrarLoading('Enviando fotos e salvando...');
+        try {
+            const linksDasFotos = await subirFotos(listaFotosBlobs);
+            const descricaoFinal = listaRascunho.map(i => i.desc + ' (Prot: ' + i.prot + ')').join(' | ');
+            const { error } = await supabase.from('Encomendas').insert([{ Apartamento: apto, Morador: moradorAtual?.Morador || '', Descrição: descricaoFinal, Status: 'pendente', Fotos: linksDasFotos }]);
+            if(!error) {
+                if(moradorAtual?.Status) {
+                    const tel = moradorAtual.Status.replace(/\D/g, '');
+                    let volumesMsg = '';
+                    listaRascunho.forEach((item, idx) => { volumesMsg += '*Volume ' + (idx + 1) + ':*%0A' + item.desc + '%0AProtocolo: ' + item.prot + '%0A%0A'; });
+                    let linkFotoMsg = '';
+                    if(linksDasFotos) {
+                        let linksFormatados = '';
+                        linksDasFotos.split(' , ').forEach(f => { if(f.trim()) linksFormatados += f.trim() + '%0A'; });
+                        linkFotoMsg = '%0A📸 *Foto(s):*%0A' + linksFormatados;
+                    }
+                    const msg = '🏢 *PORTARIA REMBRANDT*%0A%0A📍 *Encomenda Chegou!*%0AApartamento: *' + apto + '*%0A%0A' + volumesMsg + '_Disponível na portaria._' + linkFotoMsg;
+                    window.location.href = 'https://api.whatsapp.com/send?phone=' + tel + '&text=' + msg;
+                    setTimeout(() => location.reload(), 1000);
+                } else { location.reload(); }
+            } else { throw error; }
+        } catch(e) { alert('Erro ao salvar: ' + (e.message || e)); btn.disabled = false; btn.innerText = 'SALVAR E AVISAR WHATSAPP'; }
+        finally { esconderLoading(); }
+    };
+
+    // FUNÇÕES SEGURAS QUE PEGAM PELO ÍNDICE (EVITA ERRO DE ASPAS NO BOTÃO)
+    window.abrirAcrescimoPorIndex = async (index) => {
+        const item = encomendasPendentes[index];
+        if(!item) return;
+        window.abrirAcrescimo(item);
+    };
+
+    window.abrirEntregaPorIndex = async (index) => {
+        const item = encomendasPendentes[index];
+        if(!item) return;
+        window.abrirEntrega(item);
+    };
+
+    window.abrirAcrescimo = async (item) => {
+        acrescimoAtual = item; listaAcrescimoRascunho = []; listaFotosAcrescimoBlobs = []; listaFotosAcrescimoVis = [];
+        const { data } = await supabase.from('Moradores').select('*').eq('Apartamento', item.Apartamento).maybeSingle();
+        moradorAtual = data;
+        document.getElementById('tela-registro').classList.add('hidden');
+        document.getElementById('lista-aguardando').classList.add('hidden');
+        document.getElementById('tela-acrescimo').classList.remove('hidden');
+        document.getElementById('acrescimo-info').innerHTML = '<b>Apto ' + item.Apartamento + '</b> - ' + (data?.Morador || '') + '<br><small style="color:#555;">Itens atuais:<br>' + item.Descrição.split(' | ').join('<br>') + '</small>';
+        document.getElementById('lista-acrescimo-temp').innerHTML = '';
+        document.getElementById('galeria-acrescimo').innerHTML = '';
+        document.getElementById('acrescimo-protocolo').value = '';
+        document.getElementById('acrescimo-desc').value = '';
+    };
+
+    window.cancelarAcrescimo = () => location.reload();
+
+    window.abrirScannerAcrescimo = () => {
+        const readerDiv = document.getElementById('reader-acrescimo');
+        readerDiv.style.display = 'block';
+        const html5QrCode = new Html5Qrcode('reader-acrescimo');
+        html5QrCode.start({ facingMode: 'environment' }, { fps: 10, qrbox: { width: 250, height: 150 } },
+            (txt) => { tocarBip(); document.getElementById('acrescimo-protocolo').value = txt; html5QrCode.stop(); readerDiv.style.display = 'none'; }
+        ).catch(() => alert('Permita o acesso à câmera.'));
+    };
+
+    window.adicionarItemAcrescimo = () => {
+        const desc = document.getElementById('acrescimo-desc').value;
+        if(!desc) return;
+        const prot = document.getElementById('acrescimo-protocolo').value;
+        listaAcrescimoRascunho.push({ desc, prot: prot || 'S/ Protocolo' });
+        document.getElementById('lista-acrescimo-temp').innerHTML = listaAcrescimoRascunho.map(i => '<div class="acrescimo-item">📦 ' + i.desc + '<br><small>Prot: ' + i.prot + '</small></div>').join('');
+        document.getElementById('acrescimo-protocolo').value = '';
+        document.getElementById('acrescimo-desc').value = '';
+    };
+
+    window.processarFotoAcrescimo = (input) => {
+        if(input.files && input.files[0]) {
+            const file = input.files[0]; listaFotosAcrescimoBlobs.push(file);
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                listaFotosAcrescimoVis.push(e.target.result);
+                document.getElementById('galeria-acrescimo').innerHTML = listaFotosAcrescimoVis.map((f, i) => '<div class="foto-container"><img src="' + f + '" class="foto-mini"><button class="btn-del" onclick="window.removerFotoAcrescimo(' + i + ')">X</button></div>').join('');
+            };
+            reader.readAsDataURL(file);
         }
+    };
+
+    window.removerFotoAcrescimo = (idx) => {
+        listaFotosAcrescimoBlobs.splice(idx, 1); listaFotosAcrescimoVis.splice(idx, 1);
+        document.getElementById('galeria-acrescimo').innerHTML = listaFotosAcrescimoVis.map((f, i) => '<div class="foto-container"><img src="' + f + '" class="foto-mini"><button class="btn-del" onclick="window.removerFotoAcrescimo(' + i + ')">X</button></div>').join('');
+    };
+
+    window.confirmarAcrescimo = async () => {
+        if(listaAcrescimoRascunho.length === 0) return alert('Adicione pelo menos um item!');
+        mostrarLoading('Enviando fotos e atualizando...');
+        try {
+            const novaDesc = listaAcrescimoRascunho.map(i => i.desc + ' (Prot: ' + i.prot + ')').join(' | ');
+            const descAtualizada = acrescimoAtual.Descrição + ' | ' + novaDesc;
+            let fotosAtualizadas = acrescimoAtual.Fotos || '';
+            let novasUrls = '';
+            if(listaFotosAcrescimoBlobs.length > 0) {
+                novasUrls = await subirFotos(listaFotosAcrescimoBlobs);
+                if(novasUrls) { fotosAtualizadas = fotosAtualizadas ? fotosAtualizadas + ' , ' + novasUrls : novasUrls; }
+            }
+            const { error } = await supabase.from('Encomendas').update({ Descrição: descAtualizada, Fotos: fotosAtualizadas }).eq('id', acrescimoAtual.id);
+            if(!error) {
+                if(moradorAtual?.Status) {
+                    const tel = moradorAtual.Status.replace(/\D/g, '');
+                    let volumesMsg = '';
+                    listaAcrescimoRascunho.forEach((item, idx) => { volumesMsg += '*Volume ' + (idx + 1) + ':*%0A' + item.desc + '%0AProtocolo: ' + item.prot + '%0A%0A'; });
+                    let linkFotoMsg = '';
+                    if(novasUrls) {
+                        let linksFormatados = '';
+                        novasUrls.split(' , ').forEach(f => { if(f.trim()) linksFormatados += f.trim() + '%0A'; });
+                        linkFotoMsg = '%0A📸 *Foto(s) da nova encomenda:*%0A' + linksFormatados;
+                    }
+                    const msg = '🏢 *PORTARIA REMBRANDT*%0A%0A📍 *Nova Encomenda Adicionada!*%0AApartamento: *' + acrescimoAtual.Apartamento + '*%0A%0A' + volumesMsg + '_Mais esta encomenda disponível na portaria._' + linkFotoMsg;
+                    window.location.href = 'https://api.whatsapp.com/send?phone=' + tel + '&text=' + msg;
+                    setTimeout(() => location.reload(), 1000);
+                } else { alert('Encomenda adicionada! (Sem WhatsApp)'); location.reload(); }
+            } else { throw error; }
+        } catch(e) { alert('Erro ao atualizar: ' + (e.message || e)); }
+        finally { esconderLoading(); }
     };
 
     window.abrirEntrega = async (item) => {
@@ -298,95 +474,71 @@
         document.getElementById('tela-registro').classList.add('hidden');
         document.getElementById('lista-aguardando').classList.add('hidden');
         document.getElementById('tela-entrega').classList.remove('hidden');
-        document.getElementById('detalhes-entrega-texto').innerHTML = `<b>Apto ${item.Apartamento}</b><br>${item.Descrição.split(' | ').join('<br>')}`;
+        document.getElementById('detalhes-entrega-texto').innerHTML = '<b>Apto ' + item.Apartamento + '</b> - ' + (data?.Morador || '') + '<br>' + item.Descrição.split(' | ').join('<br>');
         setTimeout(iniciarAssinatura, 300);
     };
 
     window.finalizarEntrega = async () => {
         const receptor = document.getElementById('nome-receptor').value;
-        if(!receptor) return alert("Quem está retirando?");
-        const dataHora = new Date().toLocaleString('pt-BR');
-        const { jsPDF } = window.jspdf; 
-        const doc = new jsPDF();
-        doc.setFontSize(16); doc.text("RECIBO - PORTARIA REMBRANDT", 20, 20);
-        doc.setFontSize(11);
-        doc.text(`Apartamento: ${entregaAtual.Apartamento}`, 20, 35);
-        doc.text(`Retirado por: ${receptor}`, 20, 42);
-        doc.text(`Data/Hora: ${dataHora}`, 20, 49);
-        let y = 60; doc.text("Volumes Retirados:", 20, y);
-        entregaAtual.Descrição.split(' | ').forEach(linha => { y += 7; doc.text(`- ${linha}`, 25, y); });
-        doc.addImage(canvas.toDataURL(), 'PNG', 20, y + 10, 70, 25);
-        const timestamp = new Date().getTime();
-        doc.save(`Recibo_Apto_${entregaAtual.Apartamento}_${timestamp}.pdf`);
-        await supabase.from('Encomendas').update({ Status: 'entregue' }).eq('id', entregaAtual.id);
-        if(moradorAtual?.Status) {
-            const tel = moradorAtual.Status.replace(/\D/g, '');
-            let itensRetirados = "";
-            entregaAtual.Descrição.split(' | ').forEach(i => itensRetirados += `• ${i}%0A`);
-            let linkFoto = "";
-            if(entregaAtual.Fotos) {
-                const linksFormatados = entregaAtual.Fotos.split(' , ').join('%0A');
-                linkFoto = `%0A📸 *Link(s) da(s) Foto(s):*%0A${linksFormatados}`;
-            }
-            const msgR = `🏢 *PORTARIA REMBRANDT*%0A%0A✅ *Retirada Confirmada!*%0AApartamento: *${entregaAtual.Apartamento}*%0AQuem retirou: *${receptor}*%0AData: ${dataHora.split(' ')[0]}%0AHorário: ${dataHora.split(' ')[1]}%0A%0A*Encomendas retiradas:*%0A${itensRetirados}${linkFoto}`;
-            window.location.href = `https://api.whatsapp.com/send?phone=${tel}&text=${msgR}`;
-            setTimeout(() => location.reload(), 1500);
-        } else { location.reload(); }
+        if(!receptor) return alert('Quem está retirando?');
+        mostrarLoading('Gerando recibo...');
+        try {
+            const dataHora = new Date().toLocaleString('pt-BR');
+            const { jsPDF } = window.jspdf; const doc = new jsPDF();
+            doc.setFontSize(16); doc.text('RECIBO - PORTARIA REMBRANDT', 20, 20);
+            doc.setFontSize(11);
+            doc.text('Apartamento: ' + entregaAtual.Apartamento, 20, 35);
+            doc.text('Morador: ' + (entregaAtual.Morador || ''), 20, 42);
+            doc.text('Retirado por: ' + receptor, 20, 49);
+            doc.text('Data/Hora: ' + dataHora, 20, 56);
+            let y = 67; doc.text('Volumes Retirados:', 20, y);
+            entregaAtual.Descrição.split(' | ').forEach(linha => {
+                const txt = linha.trim(); if(txt) { y += 7; const linhas = doc.splitTextToSize('- ' + txt, 170); linhas.forEach(l => { doc.text(l, 25, y); y += 6; }); }
+            });
+            doc.addImage(canvas.toDataURL(), 'PNG', 20, y + 10, 70, 25);
+            doc.save('Recibo_Apto_' + entregaAtual.Apartamento + '_' + new Date().getTime() + '.pdf');
+            await supabase.from('Encomendas').update({ Status: 'entregue' }).eq('id', entregaAtual.id);
+            if(moradorAtual?.Status) {
+                const tel = moradorAtual.Status.replace(/\D/g, '');
+                let itensRetirados = '';
+                entregaAtual.Descrição.split(' | ').forEach(i => { if(i.trim()) itensRetirados += '• ' + i.trim() + '%0A'; });
+                let linkFoto = '';
+                if(entregaAtual.Fotos) { linkFoto = '%0A📸 *Foto(s):*%0A' + entregaAtual.Fotos.split(' , ').join('%0A'); }
+                const msgR = '🏢 *PORTARIA REMBRANDT*%0A%0A✅ *Retirada Confirmada!*%0AApartamento: *' + entregaAtual.Apartamento + '*%0AQuem retirou: *' + receptor + '*%0AData: ' + dataHora.split(' ')[0] + '%0AHorário: ' + dataHora.split(' ')[1] + '%0A%0A*Encomendas retiradas:*%0A' + itensRetirados + linkFoto;
+                window.location.href = 'https://api.whatsapp.com/send?phone=' + tel + '&text=' + msgR;
+                setTimeout(() => location.reload(), 1500);
+            } else { location.reload(); }
+        } catch(e) { alert('Erro: ' + (e.message || e)); }
+        finally { esconderLoading(); }
     };
 
-    window.abrirScanner = () => {
-        const readerDiv = document.getElementById('reader');
-        readerDiv.style.display = 'block';
-        const html5QrCode = new Html5Qrcode("reader");
-        html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 150 } },
-            (txt) => { 
-                tocarBipSupermercado();
-                document.getElementById('protocolo-input').value = txt; 
-                html5QrCode.stop(); 
-                readerDiv.style.display = 'none'; 
-            }
-        ).catch(() => alert("Permita a câmera."));
-    };
-
-    window.incluirNaLista = () => {
-        const desc = document.getElementById('desc-input').value;
-        if(!desc) return;
-        const prot = document.getElementById('protocolo-input').value;
-        listaRascunho.push({ desc: desc, prot: prot || "S/ Protocolo" });
-        document.getElementById('lista-temp').innerHTML = listaRascunho.map(i => `<div class="item-temp">📦 ${i.desc} <br><small>Prot: ${i.prot}</small></div>`).join("");
-        document.getElementById('protocolo-input').value = ""; document.getElementById('desc-input').value = "";
-        document.getElementById('btn-salvar-geral').style.display = 'block';
-    };
-
-    window.limparAssinatura = () => { ctx.clearRect(0, 0, canvas.width, canvas.height); };
+    window.limparAssinatura = () => { if(ctx) ctx.clearRect(0, 0, canvas.width, canvas.height); };
 
     function iniciarAssinatura() {
         canvas = document.getElementById('signature-pad'); ctx = canvas.getContext('2d');
         canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight; ctx.lineWidth = 3;
-        const getPos = (e) => {
-            const r = canvas.getBoundingClientRect(); const t = e.touches ? e.touches[0] : e;
-            return { x: t.clientX - r.left, y: t.clientY - r.top };
-        };
-        canvas.addEventListener('touchstart', (e) => { ctx.beginPath(); const p = getPos(e); ctx.moveTo(p.x, p.y); desenhando = true; e.preventDefault(); }, {passive: false});
-        canvas.addEventListener('touchmove', (e) => { if(desenhando) { const p = getPos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); } e.preventDefault(); }, {passive: false});
+        const getPos = (e) => { const r = canvas.getBoundingClientRect(); const t = e.touches ? e.touches[0] : e; return { x: t.clientX - r.left, y: t.clientY - r.top }; };
+        canvas.addEventListener('touchstart', (e) => { ctx.beginPath(); const p = getPos(e); ctx.moveTo(p.x, p.y); desenhando = true; e.preventDefault(); }, { passive: false });
+        canvas.addEventListener('touchmove', (e) => { if(desenhando) { const p = getPos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); } e.preventDefault(); }, { passive: false });
         canvas.addEventListener('touchend', () => desenhando = false);
     }
 
     window.salvarMorador = async () => {
-        const a = document.getElementById('cad-apto').value;
-        const n = document.getElementById('cad-nome').value;
-        const w = document.getElementById('cad-whats').value;
+        const a = document.getElementById('cad-apto').value; const n = document.getElementById('cad-nome').value; const w = document.getElementById('cad-whats').value;
+        if(!a || !n) return alert('Preencha apto e nome!');
+        mostrarLoading('Cadastrando...');
         await supabase.from('Moradores').insert([{ Apartamento: a, Morador: n, Status: w, created_at: new Date().toISOString() }]);
-        location.reload();
+        esconderLoading(); location.reload();
     };
 
-    window.excluirMorador = async (id) => { if(confirm("Apagar?")) { await supabase.from('Moradores').delete().eq('id', id); carregarTudo(); } };
+    window.excluirMorador = async (id) => { if(confirm('Apagar este morador?')) { await supabase.from('Moradores').delete().eq('id', id); carregarTudo(); } };
     window.abrirGestao = () => { document.getElementById('tela-registro').classList.add('hidden'); document.getElementById('lista-aguardando').classList.add('hidden'); document.getElementById('tela-cadastro').classList.remove('hidden'); };
     window.fecharGestao = () => location.reload();
-    window.verificarMorador = async () => {
-        const a = document.getElementById('apt-select').value;
-        const { data } = await supabase.from('Moradores').select('*').eq('Apartamento', a).maybeSingle();
-        moradorAtual = data;
+    window.verificarMorador = async () => { const a = document.getElementById('apt-select').value; if(!a) { moradorAtual = null; return; } const { data } = await supabase.from('Moradores').select('*').eq('Apartamento', a).maybeSingle(); moradorAtual = data; };
+
+    window.onload = async () => {
+        await testarConexoes();
+        await carregarTudo();
     };
 </script>
 </body>
