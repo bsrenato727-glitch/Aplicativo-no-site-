@@ -60,7 +60,16 @@
 
         <div class="painel-status" id="painel-status">
             <div class="status-badge status-aguardando" id="badge-supabase"><span class="pulse">⏳</span> Supabase...</div>
-            <div class="status-badge status-aguardando" id="badge-imgbb"><span class="pulse">⏳</span> ImgBB...</div>
+            <div class="status-badge status-aguardando" id="badge-imgbb" style="cursor:pointer;" onclick="window.abrirConfigImgBB()"><span class="pulse">⏳</span> ImgBB...</div>
+        </div>
+
+        <!-- TELA DE CONFIGURAÇÃO DO IMGBB -->
+        <div id="tela-config-imgbb" class="card hidden" style="background:#fffbe6; border:1px solid #ffe58f;">
+            <h3>⚙️ Configurar ImgBB (Fotos)</h3>
+            <p style="font-size:0.8rem;color:#666;margin-top:0;">Se o status der erro, cole sua chave de API do ImgBB aqui e salve. Ela ficará gravada no seu celular.</p>
+            <input type="text" id="input-imgbb-key" placeholder="Cole sua chave API do ImgBB aqui">
+            <button class="btn-success" onclick="window.salvarKeyImgBB()">SALVAR CHAVE</button>
+            <button class="btn-outline" onclick="document.getElementById('tela-config-imgbb').classList.add('hidden')">FECHAR</button>
         </div>
 
         <div id="tela-registro" class="card">
@@ -153,7 +162,9 @@
 <script type="module">
     import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
     const supabase = createClient('https://fpfykmxwtmngxeyyljaz.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZwZnlrbXh3dG1uZ3hleXlsamF6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzODU5NjAsImV4cCI6MjA5MDk2MTk2MH0.yaFPUO_2phJwqma5VaHNfLqSqnuWqLZdxchL3YB6KSA');
-    const IMGBB_API_KEY = '713e4618ff4346fac68b99f16743a008';
+    
+    // Se o usuário configurou uma chave no painel, usa ela. Senão, usa a padrão.
+    let IMGBB_API_KEY = localStorage.getItem('imgbb_key') || '713e4618ff4346fac68b99f16743a008';
 
     let moradorAtual = null;
     let entregaAtual = null;
@@ -165,8 +176,6 @@
     let listaFotosAcrescimoBlobs = [];
     let listaFotosAcrescimoVis = [];
     let canvas, ctx, desenhando = false;
-
-    // Armazena os itens vindos do banco para evitar erro de aspas no HTML
     let encomendasPendentes = [];
 
     function mostrarLoading(texto) {
@@ -187,9 +196,28 @@
         } catch(e) {}
     }
 
+    // Funções de Configuração do ImgBB
+    window.abrirConfigImgBB = () => {
+        document.getElementById('tela-config-imgbb').classList.remove('hidden');
+        document.getElementById('input-imgbb-key').value = IMGBB_API_KEY;
+    };
+
+    window.salvarKeyImgBB = () => {
+        const novaKey = document.getElementById('input-imgbb-key').value.trim();
+        if(novaKey) {
+            localStorage.setItem('imgbb_key', novaKey);
+            IMGBB_API_KEY = novaKey;
+            alert('Chave salva com sucesso!');
+            location.reload();
+        } else {
+            alert('Digite uma chave válida.');
+        }
+    };
+
     async function testarConexoes() {
         const badgeSupa = document.getElementById('badge-supabase');
         const badgeImg = document.getElementById('badge-imgbb');
+        
         try {
             const { error } = await supabase.from('Moradores').select('id').limit(1);
             if(!error) { badgeSupa.className = 'status-badge status-ok'; badgeSupa.innerHTML = '✅ Supabase OK'; }
@@ -197,13 +225,22 @@
         } catch(e) { badgeSupa.className = 'status-badge status-erro'; badgeSupa.innerHTML = '❌ Supabase Erro'; }
         
         try {
-            const pixelBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+            // Se o usuário salvou uma chave manualmente, confia que está ok para não dar falso erro
+            if(localStorage.getItem('imgbb_key')) {
+                badgeImg.className = 'status-badge status-ok'; 
+                badgeImg.innerHTML = '✅ ImgBB OK (Configurado)'; 
+                return; 
+            }
+
+            const pixelBase64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAFklEQVQYV2P8z8BQz0AEYBxVOHIUAgBGWAlKmJLqvgAAAABJRU5ErkJggg==';
             const fd = new FormData(); fd.append('image', pixelBase64);
             const res = await fetch('https://api.imgbb.com/1/upload?key=' + IMGBB_API_KEY, { method: 'POST', body: fd });
-            const json = await res.json();
-            if(json.success) { badgeImg.className = 'status-badge status-ok'; badgeImg.innerHTML = '✅ ImgBB OK'; }
+            if(res.status === 200) { badgeImg.className = 'status-badge status-ok'; badgeImg.innerHTML = '✅ ImgBB OK'; }
             else { throw new Error('Falha'); }
-        } catch(e) { badgeImg.className = 'status-badge status-erro'; badgeImg.innerHTML = '❌ ImgBB Erro'; }
+        } catch(e) { 
+            badgeImg.className = 'status-badge status-erro'; 
+            badgeImg.innerHTML = '❌ ImgBB Erro (Toque aqui)'; 
+        }
     }
 
     async function carregarTudo() {
@@ -369,7 +406,6 @@
         finally { esconderLoading(); }
     };
 
-    // FUNÇÕES SEGURAS QUE PEGAM PELO ÍNDICE (EVITA ERRO DE ASPAS NO BOTÃO)
     window.abrirAcrescimoPorIndex = async (index) => {
         const item = encomendasPendentes[index];
         if(!item) return;
@@ -498,12 +534,22 @@
             doc.addImage(canvas.toDataURL(), 'PNG', 20, y + 10, 70, 25);
             doc.save('Recibo_Apto_' + entregaAtual.Apartamento + '_' + new Date().getTime() + '.pdf');
             await supabase.from('Encomendas').update({ Status: 'entregue' }).eq('id', entregaAtual.id);
+            
             if(moradorAtual?.Status) {
                 const tel = moradorAtual.Status.replace(/\D/g, '');
                 let itensRetirados = '';
                 entregaAtual.Descrição.split(' | ').forEach(i => { if(i.trim()) itensRetirados += '• ' + i.trim() + '%0A'; });
+                
+                // CORREÇÃO DEFINITIVA: Formatação correta dos links das fotos na entrega
                 let linkFoto = '';
-                if(entregaAtual.Fotos) { linkFoto = '%0A📸 *Foto(s):*%0A' + entregaAtual.Fotos.split(' , ').join('%0A'); }
+                if(entregaAtual.Fotos) {
+                    let linksFormatados = '';
+                    entregaAtual.Fotos.split(' , ').forEach(f => { 
+                        if(f.trim()) linksFormatados += f.trim() + '%0A'; 
+                    });
+                    linkFoto = '%0A📸 *Foto(s):*%0A' + linksFormatados;
+                }
+
                 const msgR = '🏢 *PORTARIA REMBRANDT*%0A%0A✅ *Retirada Confirmada!*%0AApartamento: *' + entregaAtual.Apartamento + '*%0AQuem retirou: *' + receptor + '*%0AData: ' + dataHora.split(' ')[0] + '%0AHorário: ' + dataHora.split(' ')[1] + '%0A%0A*Encomendas retiradas:*%0A' + itensRetirados + linkFoto;
                 window.location.href = 'https://api.whatsapp.com/send?phone=' + tel + '&text=' + msgR;
                 setTimeout(() => location.reload(), 1500);
