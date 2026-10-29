@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>PORTARIA REMBRANDT - V5.9 TESTE</title>
+    <title>PORTARIA REMBRANDT - V5.9</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         :root { --primary: #075E54; --accent: #25D366; --bg: #f0f2f5; --red: #ff4d4d; --blue: #007bff; --gray: #6c757d; --orange: #f39c12; }
@@ -59,17 +59,10 @@
 
         <div class="painel-status" id="painel-status">
             <div class="status-badge status-aguardando" id="badge-supabase"><span class="pulse">⏳</span> Supabase...</div>
-            <div class="status-badge status-aguardando" id="badge-imgbb" style="cursor:pointer;" onclick="window.abrirConfigImgBB()"><span class="pulse">⏳</span> ImgBB...</div>
+            <div class="status-badge status-aguardando" id="badge-storage"><span class="pulse">⏳</span> Fotos no Supabase...</div>
         </div>
 
-        <!-- TELA DE CONFIGURAÇÃO DO IMGBB -->
-        <div id="tela-config-imgbb" class="card hidden" style="background:#fffbe6; border:1px solid #ffe58f;">
-            <h3>⚙️ Configurar ImgBB (Fotos)</h3>
-            <p style="font-size:0.8rem;color:#666;margin-top:0;">Se o status der erro, cole sua chave de API do ImgBB aqui e salve. Ela ficará gravada no seu celular.</p>
-            <input type="text" id="input-imgbb-key" placeholder="Cole sua chave API do ImgBB aqui">
-            <button class="btn-success" onclick="window.salvarKeyImgBB()">SALVAR CHAVE</button>
-            <button class="btn-outline" onclick="document.getElementById('tela-config-imgbb').classList.add('hidden')">FECHAR</button>
-        </div>
+        <div id="tela-config-imgbb" class="hidden"></div>
 
         <div id="tela-registro" class="card">
             <h3>📥 Registrar Encomenda</h3>
@@ -165,7 +158,6 @@
     const supabase = createClient('https://fpfykmxwtmngxeyyljaz.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZwZnlrbXh3dG1uZ3hleXlsamF6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzODU5NjAsImV4cCI6MjA5MDk2MTk2MH0.yaFPUO_2phJwqma5VaHNfLqSqnuWqLZdxchL3YB6KSA');
     
     // Se o usuário configurou uma chave no painel, usa ela. Senão, usa a padrão.
-    let IMGBB_API_KEY = localStorage.getItem('imgbb_key') || '';
 
     let moradorAtual = null;
     let entregaAtual = null;
@@ -331,50 +323,73 @@
         } catch(e) {}
     }
 
-    // Funções de Configuração do ImgBB
-    window.abrirConfigImgBB = () => {
-        document.getElementById('tela-config-imgbb').classList.remove('hidden');
-        document.getElementById('input-imgbb-key').value = IMGBB_API_KEY;
-    };
-
-    window.salvarKeyImgBB = () => {
-        const novaKey = document.getElementById('input-imgbb-key').value.trim();
-        if(novaKey) {
-            localStorage.setItem('imgbb_key', novaKey);
-            IMGBB_API_KEY = novaKey;
-            alert('Chave salva com sucesso!');
-            location.reload();
-        } else {
-            alert('Digite uma chave válida.');
+    // Envio de fotos para o bucket público de encomendas no Supabase.
+    const BUCKET_FOTOS = 'fotos_encomendas';
+    function mostrarEstadoStorage(tipo, texto) {
+        const badge = document.getElementById('badge-storage');
+        if (!badge) return;
+        badge.className = 'status-badge ' + (tipo === 'ok' ? 'status-ok' : tipo === 'erro' ? 'status-erro' : 'status-aguardando');
+        badge.textContent = texto;
+    }
+    async function comprimirFotoParaEncomenda(file) {
+        if (!file || !/^image\//i.test(file.type || '')) {
+            throw new Error('O arquivo selecionado não parece ser uma imagem.');
         }
-    };
-
+        if (file.size > 20 * 1024 * 1024) {
+            throw new Error('A foto original passa de 20 MB. Tire uma foto nova ou reduza o tamanho antes de enviar.');
+        }
+        const objectUrl = URL.createObjectURL(file);
+        try {
+            const img = new Image();
+            await new Promise((resolve, reject) => {
+                img.onload = resolve;
+                img.onerror = () => reject(new Error('Não consegui abrir a foto para reduzir o tamanho.'));
+                img.src = objectUrl;
+            });
+            const maxDim = 1600;
+            const scale = Math.min(1, maxDim / Math.max(img.naturalWidth, img.naturalHeight));
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
+            canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
+            const ctx = canvas.getContext('2d', { alpha: false });
+            if (!ctx) throw new Error('Não consegui preparar a foto neste celular.');
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            const blob = await new Promise((resolve, reject) => canvas.toBlob(
+                b => b ? resolve(b) : reject(new Error('Falha ao comprimir a foto.')),
+                'image/jpeg', 0.72
+            ));
+            if (blob.size > 10 * 1024 * 1024) throw new Error('A foto ainda ficou maior que o limite após a compressão.');
+            return new File([blob], 'foto-encomenda.jpg', { type: 'image/jpeg', lastModified: Date.now() });
+        } finally {
+            URL.revokeObjectURL(objectUrl);
+        }
+    }
+    async function enviarFotoSupabase(file) {
+        const fotoReduzida = await comprimirFotoParaEncomenda(file);
+        const ext = 'jpg';
+        const nome = 'enc_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10) + '.' + ext;
+        const { data, error } = await supabase.storage.from(BUCKET_FOTOS).upload(nome, fotoReduzida, {
+            cacheControl: '3600', upsert: false, contentType: 'image/jpeg'
+        });
+        if (error) throw new Error(error.message || 'Falha ao enviar a foto ao Supabase.');
+        const { data: urlData } = supabase.storage.from(BUCKET_FOTOS).getPublicUrl(data.path);
+        if (!urlData || !urlData.publicUrl) throw new Error('A foto foi enviada, mas não consegui obter o link público.');
+        return urlData.publicUrl;
+    }
     async function testarConexoes() {
         const badgeSupa = document.getElementById('badge-supabase');
-        const badgeImg = document.getElementById('badge-imgbb');
-        
         try {
             const { error } = await supabase.from('Moradores').select('id').limit(1);
-            if(!error) { badgeSupa.className = 'status-badge status-ok'; badgeSupa.innerHTML = '✅ Supabase OK'; }
-            else { throw error; }
-        } catch(e) { badgeSupa.className = 'status-badge status-erro'; badgeSupa.innerHTML = '❌ Supabase Erro'; }
-        
-        try {
-            // Se o usuário salvou uma chave manualmente, confia que está ok para não dar falso erro
-            if(localStorage.getItem('imgbb_key')) {
-                badgeImg.className = 'status-badge status-ok'; 
-                badgeImg.innerHTML = '✅ ImgBB OK (Configurado)'; 
-                return; 
-            }
-
-            const pixelBase64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAFklEQVQYV2P8z8BQz0AEYBxVOHIUAgBGWAlKmJLqvgAAAABJRU5ErkJggg==';
-            const fd = new FormData(); fd.append('image', pixelBase64);
-            const res = await fetch('https://api.imgbb.com/1/upload?key=' + IMGBB_API_KEY, { method: 'POST', body: fd });
-            if(res.status === 200) { badgeImg.className = 'status-badge status-ok'; badgeImg.innerHTML = '✅ ImgBB OK'; }
-            else { throw new Error('Falha'); }
-        } catch(e) { 
-            badgeImg.className = 'status-badge status-erro'; 
-            badgeImg.innerHTML = '❌ ImgBB Erro (Toque aqui)'; 
+            if (error) throw error;
+            badgeSupa.className = 'status-badge status-ok';
+            badgeSupa.textContent = '✅ Supabase OK';
+            mostrarEstadoStorage('ok', '✅ Fotos prontas no Supabase');
+        } catch (e) {
+            badgeSupa.className = 'status-badge status-erro';
+            badgeSupa.textContent = '❌ Supabase Erro';
+            mostrarEstadoStorage('erro', '❌ Armazenamento indisponível');
         }
     }
 
@@ -567,14 +582,14 @@
     window.removerFoto = (idx) => { listaFotosBlobs.splice(idx, 1); listaFotosVisualizacao.splice(idx, 1); renderGaleria(); };
 
     async function subirFotos(arrBlobs) {
-        let urls = [];
-        for(let file of arrBlobs) {
-            const fd = new FormData(); fd.append('image', file);
+        const urls = [];
+        for (let indice = 0; indice < arrBlobs.length; indice++) {
             try {
-                const res = await fetch('https://api.imgbb.com/1/upload?key=' + IMGBB_API_KEY, { method: 'POST', body: fd });
-                const json = await res.json();
-                if(json.success) urls.push(json.data.url);
-            } catch(e) { console.error('Erro upload:', e); }
+                urls.push(await enviarFotoSupabase(arrBlobs[indice]));
+            } catch (e) {
+                throw new Error('A foto ' + (indice + 1) + ' de ' + arrBlobs.length + ' não foi enviada ao Supabase. ' +
+                    (e.message || 'Erro desconhecido.') + '\n\nA encomenda não foi salva. Confira a conexão e tente novamente.');
+            }
         }
         return urls.join(' , ');
     }
