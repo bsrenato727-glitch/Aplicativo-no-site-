@@ -331,17 +331,47 @@
         badge.className = 'status-badge ' + (tipo === 'ok' ? 'status-ok' : tipo === 'erro' ? 'status-erro' : 'status-aguardando');
         badge.textContent = texto;
     }
+    async function comprimirFotoParaEncomenda(file) {
+        if (!file || !/^image\//i.test(file.type || '')) {
+            throw new Error('O arquivo selecionado não parece ser uma imagem.');
+        }
+        if (file.size > 20 * 1024 * 1024) {
+            throw new Error('A foto original passa de 20 MB. Tire uma foto nova ou reduza o tamanho antes de enviar.');
+        }
+        const objectUrl = URL.createObjectURL(file);
+        try {
+            const img = new Image();
+            await new Promise((resolve, reject) => {
+                img.onload = resolve;
+                img.onerror = () => reject(new Error('Não consegui abrir a foto para reduzir o tamanho.'));
+                img.src = objectUrl;
+            });
+            const maxDim = 1600;
+            const scale = Math.min(1, maxDim / Math.max(img.naturalWidth, img.naturalHeight));
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
+            canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
+            const ctx = canvas.getContext('2d', { alpha: false });
+            if (!ctx) throw new Error('Não consegui preparar a foto neste celular.');
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            const blob = await new Promise((resolve, reject) => canvas.toBlob(
+                b => b ? resolve(b) : reject(new Error('Falha ao comprimir a foto.')),
+                'image/jpeg', 0.72
+            ));
+            if (blob.size > 10 * 1024 * 1024) throw new Error('A foto ainda ficou maior que o limite após a compressão.');
+            return new File([blob], 'foto-encomenda.jpg', { type: 'image/jpeg', lastModified: Date.now() });
+        } finally {
+            URL.revokeObjectURL(objectUrl);
+        }
+    }
     async function enviarFotoSupabase(file) {
-        if (!file || !/^image\/(jpeg|png|webp)$/i.test(file.type || '')) {
-            throw new Error('Formato de foto não aceito. Use JPG, PNG ou WebP.');
-        }
-        if (file.size > 10 * 1024 * 1024) {
-            throw new Error('A foto ultrapassa o limite de 10 MB. Reduza o tamanho e tente novamente.');
-        }
-        const ext = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg';
+        const fotoReduzida = await comprimirFotoParaEncomenda(file);
+        const ext = 'jpg';
         const nome = 'enc_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10) + '.' + ext;
-        const { data, error } = await supabase.storage.from(BUCKET_FOTOS).upload(nome, file, {
-            cacheControl: '3600', upsert: false, contentType: file.type
+        const { data, error } = await supabase.storage.from(BUCKET_FOTOS).upload(nome, fotoReduzida, {
+            cacheControl: '3600', upsert: false, contentType: 'image/jpeg'
         });
         if (error) throw new Error(error.message || 'Falha ao enviar a foto ao Supabase.');
         const { data: urlData } = supabase.storage.from(BUCKET_FOTOS).getPublicUrl(data.path);
